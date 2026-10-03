@@ -1,10 +1,12 @@
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { registerAuth } from "../../../src/server/auth/plugin";
+import { cookieSecret } from "../../../src/server/auth/password";
+import { createHmac } from "node:crypto";
 
-async function app() {
+async function app(serverSecret: string = "test-server-secret") {
   const a = Fastify();
-  await registerAuth(a, { password: "dragon" });
+  await registerAuth(a, { password: "dragon", serverSecret });
   a.get("/api/secret", async () => ({ ok: true }));
   a.get("/", async () => "page");
   return a;
@@ -55,5 +57,17 @@ describe("auth plugin", () => {
     for (let i = 0; i < 10; i++) await a.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "x" } });
     const r = await a.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
     expect(r.statusCode).toBe(429);
+  });
+
+  it("rejects a cookie forged with a different server secret", async () => {
+    const a = await app("correct-secret");
+    const wrongSecret = cookieSecret("dragon", "wrong-secret");
+    const value = "ok";
+    const sig = createHmac("sha256", wrongSecret).update(value).digest("base64").replace(/=+$/, "");
+    const forgedCookie = `${value}.${sig}`;
+    const r = await a.inject({ method: "GET", url: "/api/secret", remoteAddress: LAN, headers: { cookie: `table=${forgedCookie}` } });
+    expect(r.statusCode).toBe(401);
+    const session = await a.inject({ method: "GET", url: "/api/session", remoteAddress: LAN, headers: { cookie: `table=${forgedCookie}` } });
+    expect(session.json()).toEqual({ authed: false });
   });
 });

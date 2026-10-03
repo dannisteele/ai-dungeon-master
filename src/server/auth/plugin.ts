@@ -6,8 +6,8 @@ import { cookieSecret, LoginRateLimiter, passwordMatches } from "./password";
 const COOKIE = "table";
 const OPEN_PATHS = new Set(["/api/login", "/api/session"]);
 
-export async function registerAuth(app: FastifyInstance, opts: { password: string }): Promise<void> {
-  await app.register(cookie, { secret: cookieSecret(opts.password) });
+export async function registerAuth(app: FastifyInstance, opts: { password: string; serverSecret: string }): Promise<void> {
+  await app.register(cookie, { secret: cookieSecret(opts.password, opts.serverSecret) });
   const limiter = new LoginRateLimiter();
 
   const isAuthed = (req: FastifyRequest) => {

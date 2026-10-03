@@ -1,4 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
 
@@ -6,9 +8,20 @@ export function passwordMatches(input: string, expected: string): boolean {
   return timingSafeEqual(sha256(input), sha256(expected));
 }
 
-/** Changing TABLE_PASSWORD changes the secret, which signs every device out. */
-export function cookieSecret(password: string): string {
-  return sha256(`ai-dungeon-master:cookie:${password}`).toString("hex");
+export function loadOrCreateServerSecret(path: string): string {
+  try {
+    return readFileSync(path, "utf-8").trim();
+  } catch {
+    const secret = randomBytes(32).toString("hex");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, secret, { mode: 0o600 });
+    return secret;
+  }
+}
+
+/** Changing TABLE_PASSWORD or the server secret changes the cookie secret, which signs every device out. */
+export function cookieSecret(password: string, serverSecret: string): string {
+  return sha256(`ai-dungeon-master:cookie:${serverSecret}:${password}`).toString("hex");
 }
 
 export class LoginRateLimiter {
