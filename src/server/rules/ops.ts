@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { maxHpFor, SCORE_MAX, SCORE_MIN } from "../../shared/abilities";
-import { ABILITIES, type Character, type Op } from "../../shared/types";
+import { ABILITIES, ATTITUDES, CONDITIONS, type Character, type Npc, type Op } from "../../shared/types";
+
+export const MAX_NPCS = 12;
 
 const name = z.string().trim().min(1).max(60);
 const amount = z.number().int().min(1).max(50);
@@ -17,10 +19,13 @@ export const OpSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("adjust_stat"), character: name, stat: z.enum(ABILITIES), delta: z.union([z.literal(-1), z.literal(1)]) }),
   z.object({ op: z.literal("level_up"), character: name }),
   z.object({ op: z.literal("set_scene"), title: z.string().trim().min(1).max(80) }),
+  z.object({ op: z.literal("npc"), name, attitude: z.enum(ATTITUDES), condition: z.enum(CONDITIONS) }),
+  z.object({ op: z.literal("npc_gone"), name }),
 ]) satisfies z.ZodType<Op>;
 
 export interface ApplyResult {
   characters: Character[];
+  npcs: Npc[];
   applied: Op[];
   rejected: { op: unknown; reason: string }[];
   sceneTitle: string | null;
@@ -38,7 +43,7 @@ export function recalcMaxHp(c: Character): void {
   c.hp = Math.min(newMax, Math.max(0, gain > 0 ? c.hp + gain : c.hp));
 }
 
-function applyOne(c: Character, op: Exclude<Op, { op: "set_scene" }>): string | null {
+function applyOne(c: Character, op: Extract<Op, { character: string }>): string | null {
   switch (op.op) {
     case "damage":
       c.hp = Math.max(0, c.hp - op.amount);
@@ -76,9 +81,11 @@ function applyOne(c: Character, op: Exclude<Op, { op: "set_scene" }>): string | 
   }
 }
 
-export function applyOps(characters: Character[], rawOps: unknown[]): ApplyResult {
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+export function applyOps(characters: Character[], rawOps: unknown[], npcs: Npc[] = []): ApplyResult {
   const chars = structuredClone(characters);
-  const result: ApplyResult = { characters: chars, applied: [], rejected: [], sceneTitle: null };
+  const result: ApplyResult = { characters: chars, npcs: structuredClone(npcs), applied: [], rejected: [], sceneTitle: null };
   for (const raw of rawOps) {
     const parsed = OpSchema.safeParse(raw);
     if (!parsed.success) {
@@ -88,6 +95,23 @@ export function applyOps(characters: Character[], rawOps: unknown[]): ApplyResul
     const op = parsed.data;
     if (op.op === "set_scene") {
       result.sceneTitle = op.title;
+      result.npcs = [];
+      result.applied.push(op);
+      continue;
+    }
+    if (op.op === "npc") {
+      const npc: Npc = { name: op.name, attitude: op.attitude, condition: op.condition };
+      const at = result.npcs.findIndex((n) => sameName(n.name, op.name));
+      if (at >= 0) result.npcs[at] = npc;
+      else if (result.npcs.length >= MAX_NPCS) { result.rejected.push({ op, reason: `too many NPCs in the scene (max ${MAX_NPCS})` }); continue; }
+      else result.npcs.push(npc);
+      result.applied.push(op);
+      continue;
+    }
+    if (op.op === "npc_gone") {
+      const at = result.npcs.findIndex((n) => sameName(n.name, op.name));
+      if (at < 0) { result.rejected.push({ op, reason: `no NPC called "${op.name}" is here` }); continue; }
+      result.npcs.splice(at, 1);
       result.applied.push(op);
       continue;
     }

@@ -86,3 +86,48 @@ describe("applyOps", () => {
     expect(r.sceneTitle).toBe("The Drowned Chapel");
   });
 });
+
+describe("NPC ops", () => {
+  const brute = { op: "npc", name: "Scarred Brute", attitude: "hostile", condition: "unhurt" };
+
+  it("adds NPCs and updates them case-insensitively, keeping the newest spelling", () => {
+    const r = applyOps([hero()], [brute, { op: "npc", name: "  scarred BRUTE ", attitude: "hostile", condition: "wounded" }]);
+    expect(r.npcs).toEqual([{ name: "scarred BRUTE", attitude: "hostile", condition: "wounded" }]);
+    expect(r.applied).toHaveLength(2);
+  });
+
+  it("starts from the NPCs passed in and does not mutate them", () => {
+    const before = [{ name: "Barkeep", attitude: "neutral" as const, condition: "unhurt" as const }];
+    const r = applyOps([hero()], [brute], before);
+    expect(r.npcs.map((n) => n.name)).toEqual(["Barkeep", "Scarred Brute"]);
+    expect(before).toHaveLength(1);
+  });
+
+  it("npc_gone removes an NPC and rejects unknown names", () => {
+    const start = [{ name: "Barkeep", attitude: "neutral" as const, condition: "unhurt" as const }];
+    const r = applyOps([hero()], [{ op: "npc_gone", name: "barkeep" }, { op: "npc_gone", name: "Ghost" }], start);
+    expect(r.npcs).toEqual([]);
+    expect(r.rejected).toEqual([{ op: { op: "npc_gone", name: "Ghost" }, reason: 'no NPC called "Ghost" is here' }]);
+  });
+
+  it("set_scene clears the list, and later npc ops repopulate it", () => {
+    const start = [{ name: "Barkeep", attitude: "neutral" as const, condition: "unhurt" as const }];
+    const r = applyOps([hero()], [{ op: "set_scene", title: "The Cells" }, { op: "npc", name: "Jailer", attitude: "wary", condition: "unhurt" }], start);
+    expect(r.sceneTitle).toBe("The Cells");
+    expect(r.npcs).toEqual([{ name: "Jailer", attitude: "wary", condition: "unhurt" }]);
+  });
+
+  it("caps the scene at 12 NPCs", () => {
+    const ops = Array.from({ length: 13 }, (_, i) => ({ op: "npc", name: `Rat ${i}`, attitude: "hostile", condition: "unhurt" }));
+    const r = applyOps([hero()], ops);
+    expect(r.npcs).toHaveLength(12);
+    expect(r.rejected).toEqual([{ op: ops[12], reason: "too many NPCs in the scene (max 12)" }]);
+  });
+
+  it("rejects an invalid attitude or condition", () => {
+    const r = applyOps([hero()], [{ op: "npc", name: "X", attitude: "angry", condition: "unhurt" }, { op: "npc", name: "Y", attitude: "wary", condition: "dead" }]);
+    expect(r.npcs).toEqual([]);
+    expect(r.rejected).toHaveLength(2);
+    expect(r.rejected[0].reason).toMatch(/invalid op/);
+  });
+});

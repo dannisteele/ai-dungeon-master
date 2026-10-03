@@ -32,6 +32,8 @@ export function transcriptFromEvents(events: StoredEvent[], characters: Characte
           case "adjust_stat": lines.push(`[Sheet] ${op.character} ${op.stat} ${op.delta > 0 ? "+1" : "-1"}`); break;
           case "level_up": lines.push(`[Sheet] ${op.character} reaches a new level`); break;
           case "set_scene": lines.push(`[Scene] ${op.title}`); break;
+          case "npc": lines.push(`[NPC] ${op.name}: ${op.attitude}, ${op.condition}`); break;
+          case "npc_gone": lines.push(`[NPC] ${op.name} leaves`); break;
         }
         break;
       }

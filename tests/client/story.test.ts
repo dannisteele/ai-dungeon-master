@@ -54,6 +54,19 @@ describe("buildStory", () => {
   });
 });
 
+describe("NPC story chips", () => {
+  it("shows NPC changes as sheet chips", () => {
+    const story = buildStory([
+      ev(1, { type: "op_applied", op: { op: "npc", name: "Scarred Brute", attitude: "hostile", condition: "wounded" } }),
+      ev(1, { type: "op_applied", op: { op: "npc_gone", name: "Scarred Brute" } }),
+    ], chars);
+    expect(story).toEqual([
+      expect.objectContaining({ kind: "sheet", text: "Scarred Brute: hostile, wounded" }),
+      expect.objectContaining({ kind: "sheet", text: "Scarred Brute leaves" }),
+    ]);
+  });
+});
+
 describe("newItemNames", () => {
   it("lists items added to a character in the last resolved round", () => {
     const events = [

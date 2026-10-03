@@ -42,4 +42,9 @@ describe("lightRules", () => {
     expect(lightRules.isDowned(c({ hp: 0 }))).toBe(true);
     expect(lightRules.isDowned(c({ hp: 1 }))).toBe(false);
   });
+
+  it("revives at half max HP, rounded up", () => {
+    expect(lightRules.reviveHp(c({ maxHp: 25 }))).toBe(13);
+    expect(lightRules.reviveHp(c({ maxHp: 22 }))).toBe(11);
+  });
 });

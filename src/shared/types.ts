@@ -2,6 +2,12 @@ export const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
 export type Ability = (typeof ABILITIES)[number];
 export type Scores = Record<Ability, number>;
 
+export const ATTITUDES = ["hostile", "wary", "neutral", "friendly"] as const;
+export type Attitude = (typeof ATTITUDES)[number];
+export const CONDITIONS = ["unhurt", "wounded", "badly hurt", "down"] as const;
+export type Condition = (typeof CONDITIONS)[number];
+export interface Npc { name: string; attitude: Attitude; condition: Condition }
+
 export interface Item { name: string; description: string; qty: number }
 
 export interface Character {
@@ -66,7 +72,9 @@ export type Op =
   | { op: "remove_item"; character: string; name: string; qty: number }
   | { op: "adjust_stat"; character: string; stat: Ability; delta: -1 | 1 }
   | { op: "level_up"; character: string }
-  | { op: "set_scene"; title: string };
+  | { op: "set_scene"; title: string }
+  | { op: "npc"; name: string; attitude: Attitude; condition: Condition }
+  | { op: "npc_gone"; name: string };
 
 export type Crit = "nat20" | "nat1" | null;
 

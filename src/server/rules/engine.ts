@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { validatePointBuy, maxHpFor, SCORE_MAX } from "../../shared/abilities";
-import type { Ability, Character, CheckOutcome, Op, Scores } from "../../shared/types";
+import type { Ability, Character, CheckOutcome, Npc, Op, Scores } from "../../shared/types";
 import { resolveCheck } from "./dice";
 import { applyOps, OpSchema, recalcMaxHp, type ApplyResult } from "./ops";
 
@@ -14,9 +14,10 @@ export interface RulesEngine {
   validateNewCharacter(scores: Scores): string | null;
   startingMaxHp(scores: Scores): number;
   check(die: number, scores: Scores, ability: Ability, dc: number): CheckOutcome;
-  applyOps(characters: Character[], ops: unknown[]): ApplyResult;
+  applyOps(characters: Character[], ops: unknown[], npcs?: Npc[]): ApplyResult;
   spendAbilityPoint(c: Character, ability: Ability): { character: Character } | { error: string };
   isDowned(c: Character): boolean;
+  /** HP every hero wakes with after the party is revived. */ reviveHp(c: Character): number;
 }
 
 export const lightRules: RulesEngine = {
@@ -35,6 +36,8 @@ export const lightRules: RulesEngine = {
     '- {"op":"adjust_stat","character":NAME,"stat":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","delta":1 or -1}  (a permanent change; rare)',
     '- {"op":"level_up","character":NAME}',
     '- {"op":"set_scene","title":SHORT_PLACE_NAME}  (when the party arrives somewhere new)',
+    '- {"op":"npc","name":NAME,"attitude":"hostile"|"wary"|"neutral"|"friendly","condition":"unhurt"|"wounded"|"badly hurt"|"down"}  (add or update someone in the scene)',
+    '- {"op":"npc_gone","name":NAME}  (they leave or are no longer relevant)',
   ].join("\n"),
   opSchema: OpSchema,
   validateNewCharacter: validatePointBuy,
@@ -51,4 +54,5 @@ export const lightRules: RulesEngine = {
     return { character: next };
   },
   isDowned: (c) => c.hp <= 0,
+  reviveHp: (c) => Math.ceil(c.maxHp / 2),
 };

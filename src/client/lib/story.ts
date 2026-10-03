@@ -52,6 +52,8 @@ export function buildStory(events: StoredEvent[], chars: Character[]): StoryEntr
             text = `${op.character} reaches level ${next}`;
             break;
           }
+          case "npc": text = `${op.name}: ${op.attitude}, ${op.condition}`; break;
+          case "npc_gone": text = `${op.name} leaves`; break;
         }
         out.push({ kind: "sheet", id: e.id, text });
         break;

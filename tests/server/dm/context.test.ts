@@ -67,4 +67,14 @@ describe("transcripts", () => {
     expect(ctx.recentRounds.map((r) => r.round)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     expect(ctx.campaign.id).toBe(c.id);
   });
+
+  it("renders NPC ops as [NPC] lines", () => {
+    const store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "npc", name: "Scarred Brute", attitude: "hostile", condition: "badly hurt" } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "npc_gone", name: "Scarred Brute" } });
+    expect(transcriptFromEvents(store.getEvents(c.id), [])).toEqual([
+      { round: 1, lines: ["[NPC] Scarred Brute: hostile, badly hurt", "[NPC] Scarred Brute leaves"] },
+    ]);
+  });
 });
