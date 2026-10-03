@@ -24,13 +24,7 @@ const fakeDm = (over: Partial<DungeonMaster> = {}): DungeonMaster => ({
 let app: FastifyInstance;
 let store: Store;
 let unloads = 0;
-let sockets: Set<import("node:net").Socket>;
 afterEach(async () => {
-  // A refused (non-upgraded) WebSocket handshake leaves a raw socket that @fastify/websocket's
-  // 'upgrade' listener hands off outside Fastify/Node's normal request bookkeeping, so neither
-  // `closeAllConnections()` nor a graceful `close()` ever sees it end. Track sockets ourselves
-  // (only exercised by tests that call `connectWs`) and destroy them before closing.
-  for (const s of sockets ?? []) s.destroy();
   await app?.close();
   store?.close();
 });
@@ -38,10 +32,8 @@ afterEach(async () => {
 async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }) {
   store = createStore(":memory:");
   unloads = 0;
-  sockets = new Set();
   const chat: ChatClient = { chat: async () => "", unload };
   ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat }));
-  app.server.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
   const req = (method: "GET" | "POST", url: string, payload?: object) =>
@@ -161,10 +153,11 @@ describe("API", () => {
   it("refuses WebSockets without the cookie", async () => {
     await start();
     const ws = await connectWs("/ws?campaign=1");
-    await new Promise<void>((resolve, reject) => {
-      ws.on("unexpected-response", (_req, res) => { res.destroy(); resolve(); });
+    const status = await new Promise<number>((resolve, reject) => {
+      ws.on("unexpected-response", (_req, res) => { res.resume(); resolve(res.statusCode!); });
       ws.on("open", () => { ws.terminate(); reject(new Error("expected the connection to be refused")); });
-      ws.on("error", () => resolve());
+      ws.on("error", reject);
     });
+    expect(status).toBe(401);
   });
 });

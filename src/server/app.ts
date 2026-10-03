@@ -34,6 +34,17 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; t
   const serverSecret = deps.serverSecret ?? randomBytes(32).toString("hex");
   await registerAuth(app, { password: deps.config.tablePassword, serverSecret });
   await app.register(websocket);
+
+  // @fastify/websocket (v11.3.3) never ends or destroys the raw socket of an upgrade request
+  // that gets refused (401 from our auth hook, 403 off-LAN, 404 with no matching route): the
+  // client sees the rejection, but the socket lingers forever from the server's point of view,
+  // so app.close() (and thus a graceful SIGINT/SIGTERM shutdown) hangs. Every refused WS attempt
+  // -- e.g. a stale tab reconnecting after the password changes -- leaks a socket. Force those
+  // closed ourselves whenever an upgrade doesn't complete with 101 Switching Protocols.
+  app.addHook("onResponse", async (req, reply) => {
+    if (req.headers.upgrade && reply.statusCode !== 101) reply.raw.socket?.destroy();
+  });
+
   await registerApi(app, { store: deps.store, rules, dm: deps.dm, chat: deps.chat, turns, adventures: loadAdventures() });
   await registerWs(app, { store: deps.store, rules, turns, hub });
 
