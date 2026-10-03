@@ -18,6 +18,8 @@ class FakeDm implements DungeonMaster {
   nextChanges: unknown[] = [];
   failNext: "adjudicate" | "resolve" | "opening" | null = null;
   summaries = 0;
+  summariseFailNext = false;
+  summariseGate: Promise<void> | null = null;
   onResolve: (() => void) | null = null;
 
   async adjudicate(_ctx: DmContext, actions: ActionInput[]) {
@@ -43,7 +45,12 @@ class FakeDm implements DungeonMaster {
     return { narration: "Once upon a time.", changes: [{ op: "set_scene", title: "The Gate" }] };
   }
   async startingKit() { return [{ name: "Rope", description: "30ft" }]; }
-  async summarise(_old: string, rounds: unknown[]) { this.summaries++; return `summary of ${rounds.length} rounds`; }
+  async summarise(_old: string, rounds: unknown[]) {
+    this.summaries++;
+    if (this.summariseGate) await this.summariseGate;
+    if (this.summariseFailNext) { this.summariseFailNext = false; throw new Error("summary failed"); }
+    return `summary of ${rounds.length} rounds`;
+  }
 }
 
 class RecordingHub implements Broadcaster {
@@ -252,6 +259,39 @@ describe("TurnService", () => {
   it("summarises every 10 rounds without blocking play", async () => {
     const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
     for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+    await turns.settle();
+    expect(dm.summaries).toBe(1);
+    expect(store.getCampaign(id)!.summary).toBe("summary of 10 rounds");
+  });
+
+  it("retries a failed summary on the next round, covering the whole gap", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.summariseFailNext = true;
+    for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+    await turns.settle();
+    expect(dm.summaries).toBe(1);
+    expect(store.getCampaign(id)!.summary).toBe("");
+    expect(store.getEvents(id).some((e) => e.type === "summary")).toBe(false);
+
+    await turns.submitAction(id, chars[0].id, "act 10");
+    await turns.settle();
+    expect(dm.summaries).toBe(2);
+    expect(store.getCampaign(id)!.summary).toBe("summary of 11 rounds");
+    expect(store.getEvents(id).filter((e) => e.type === "summary")).toEqual([
+      expect.objectContaining({ text: "summary of 11 rounds", throughRound: 11 }),
+    ]);
+  });
+
+  it("doesn't spawn a second summary while one is already in flight", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    let release: () => void = () => {};
+    dm.summariseGate = new Promise((res) => { release = res; });
+    for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+    // round 10's summary is now in flight, waiting on the gate.
+    await turns.submitAction(id, chars[0].id, "act 10"); // round 11 completes while it's still pending
+    expect(dm.summaries).toBe(1);
+
+    release();
     await turns.settle();
     expect(dm.summaries).toBe(1);
     expect(store.getCampaign(id)!.summary).toBe("summary of 10 rounds");

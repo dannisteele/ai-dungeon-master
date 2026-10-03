@@ -22,6 +22,7 @@ const nameOf = (chars: Character[], id: number) => chars.find((c) => c.id === id
 export class TurnService {
   private locks = new Map<number, Promise<unknown>>();
   private background = new Set<Promise<void>>();
+  private summarising = new Set<number>();
 
   constructor(private deps: TurnDeps) {}
 
@@ -216,7 +217,7 @@ export class TurnService {
         }] : []),
       }, this.stream(id));
       this.commitNarration(id, out);
-      if (c.roundNumber % SUMMARY_EVERY === 0) this.spawnSummary(id, c.roundNumber);
+      this.maybeSpawnSummary(id, c.roundNumber);
     });
   }
 
@@ -237,17 +238,39 @@ export class TurnService {
     });
   }
 
-  private spawnSummary(id: number, upToRound: number): void {
+  /** The last round covered by a successful summary, or 0 if none has ever landed. */
+  private lastSummaryThrough(id: number): number {
+    let last = 0;
+    for (const e of this.deps.store.getEvents(id)) if (e.type === "summary") last = e.throughRound;
+    return last;
+  }
+
+  /**
+   * Summaries run in the background so they never block play. If one is already in flight for
+   * this campaign, we skip rather than overlap it; if the gap since the last successful summary
+   * has reached SUMMARY_EVERY rounds, spawn one covering the whole unsummarised gap. A failed
+   * summary leaves the gap open, so it's naturally retried (widened) after the next round.
+   */
+  private maybeSpawnSummary(id: number, through: number): void {
+    if (this.summarising.has(id)) return;
+    const lastThrough = this.lastSummaryThrough(id);
+    if (through - lastThrough >= SUMMARY_EVERY) this.spawnSummary(id, lastThrough + 1, through);
+  }
+
+  private spawnSummary(id: number, fromRound: number, throughRound: number): void {
     const { store, dm } = this.deps;
+    this.summarising.add(id);
     const p = (async () => {
       try {
         const c = this.campaign(id);
-        const events = store.getEvents(id, { fromRound: upToRound - SUMMARY_EVERY + 1, toRound: upToRound });
+        const events = store.getEvents(id, { fromRound, toRound: throughRound });
         const text = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)));
         store.updateCampaign(id, { summary: text });
-        store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text });
+        store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text, throughRound });
       } catch (e) {
-        console.warn(`[campaign ${id}] summary failed (will retry in 10 rounds):`, (e as Error).message);
+        console.warn(`[campaign ${id}] summary failed (will retry after the next round):`, (e as Error).message);
+      } finally {
+        this.summarising.delete(id);
       }
     })();
     this.background.add(p);

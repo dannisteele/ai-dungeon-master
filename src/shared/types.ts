@@ -82,7 +82,7 @@ export type GameEvent =
   | { type: "narration"; text: string }
   | { type: "op_applied"; op: Op }
   | { type: "op_rejected"; op: unknown; reason: string }
-  | { type: "summary"; text: string }
+  | { type: "summary"; text: string; throughRound: number }
   | { type: "stall"; phase: AiPhase; error: string };
 
 export interface EventMeta { id: number; campaignId: number; round: number; createdAt: string }
