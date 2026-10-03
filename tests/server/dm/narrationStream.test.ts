@@ -33,4 +33,14 @@ describe("NarrationExtractor", () => {
   it("returns nothing when there is no narration key", () => {
     expect(feed(['{"checks": []}'])).toBe("");
   });
+
+  it("matches JSON.parse for all escape sequences", () => {
+    // Test string with \r, \b, \f, \/, \", \\, and \n
+    const raw = '{"narration": "cr\\r bs\\b ff\\f sl\\/ dq\\" bs\\\\nl\\n"}';
+    const expected = JSON.parse(raw).narration;
+    // Feed the raw string char by char to test streaming
+    expect(feed([...raw])).toBe(expected);
+    // Also test with whole string at once
+    expect(feed([raw])).toBe(expected);
+  });
 });

@@ -2,6 +2,15 @@
  * Pulls the value of the top-level "narration" string out of a JSON document
  * as it streams in, so players see the story appear word by word.
  */
+
+const ESCAPE_MAP: Record<string, string> = {
+  n: "\n",
+  t: "\t",
+  r: "\r",
+  b: "\b",
+  f: "\f",
+};
+
 export class NarrationExtractor {
   private mode: "seek" | "in" | "done" = "seek";
   private seekBuf = "";
@@ -33,7 +42,7 @@ export class NarrationExtractor {
       } else if (this.escape) {
         this.escape = false;
         if (ch === "u") this.unicode = "";
-        else out += ({ n: "\n", t: "\t", r: "", b: "", f: "" } as Record<string, string>)[ch] ?? ch;
+        else out += ESCAPE_MAP[ch] ?? ch;
       } else if (ch === "\\") {
         this.escape = true;
       } else if (ch === '"') {
