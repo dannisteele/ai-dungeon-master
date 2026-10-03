@@ -1,0 +1,16 @@
+{
+  "id": "drowned-chapel",
+  "title": "The Drowned Chapel",
+  "setting": "Classic fantasy with a gothic tone: marsh villages, old faith, restless dead.",
+  "pitch": "A flooded chapel on the marsh has started ringing its bell at night, though its bell tower collapsed decades ago. The village of Fenwick has offered a purse of silver to anyone who can silence it.",
+  "goal": "Discover why the bell rings and silence it for good.",
+  "villain": "Sister Ambrel, a drowned abbess bound to the bell, who wants one living soul to take her place.",
+  "locations": ["Fenwick village and the Lantern Inn", "The causeway across the marsh", "The flooded nave", "The crypt beneath the altar", "The sunken bell chamber"],
+  "beats": [
+    "The villagers explain the bell and the recent disappearances",
+    "The causeway: something in the reeds follows the party",
+    "The nave: signs of the abbess and her last sermon",
+    "The crypt: the truth of the bargain",
+    "The bell chamber: confront Sister Ambrel and choose how it ends"
+  ]
+}

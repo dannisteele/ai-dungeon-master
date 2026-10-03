@@ -1,0 +1,30 @@
+import { networkInterfaces } from "node:os";
+import { dirname, join } from "node:path";
+import { buildApp } from "./app";
+import { loadOrCreateServerSecret } from "./auth/password";
+import { loadConfig } from "./config";
+import { createDungeonMaster } from "./dm/dm";
+import { createOllamaClient } from "./dm/ollama";
+import { lightRules } from "./rules/engine";
+import { createStore } from "./store/store";
+
+try { process.loadEnvFile(); } catch { /* no .env file: rely on the environment */ }
+
+const config = loadConfig();
+const store = createStore(config.dbPath);
+const serverSecret = loadOrCreateServerSecret(join(dirname(config.dbPath), "cookie-secret"));
+const chat = createOllamaClient({ url: config.ollamaUrl, model: config.ollamaModel, keepAlive: config.ollamaKeepAlive });
+const dm = createDungeonMaster({ chat, rules: lightRules, budgetTokens: config.promptBudgetTokens });
+const { app, turns } = await buildApp({ config, store, dm, chat, serverSecret, serveClient: process.env.NODE_ENV === "production" });
+
+turns.recoverInterrupted();
+await app.listen({ port: config.port, host: config.host });
+
+const lan = Object.values(networkInterfaces()).flat()
+  .filter((n) => n && n.family === "IPv4" && !n.internal)
+  .map((n) => `  http://${n!.address}:${config.port}`);
+console.log(`\n🕯  The table is open.\n  http://localhost:${config.port}\n${lan.join("\n")}\n  Dungeon Master: ${config.ollamaModel} at ${config.ollamaUrl}\n`);
+
+const shutdown = async () => { await app.close(); store.close(); process.exit(0); };
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
