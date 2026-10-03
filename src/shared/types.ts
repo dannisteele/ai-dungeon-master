@@ -24,9 +24,9 @@ export interface Character {
 }
 
 export type Mode = "solo" | "party";
-export type AiPhase = "opening" | "adjudicating" | "resolving";
-export type RoundState = "lobby" | "collecting" | "awaiting_rolls" | "stalled" | AiPhase;
-export const AI_PHASES: readonly AiPhase[] = ["opening", "adjudicating", "resolving"];
+export type AiPhase = "opening" | "adjudicating" | "resolving" | "reviving";
+export type RoundState = "lobby" | "collecting" | "awaiting_rolls" | "stalled" | "fallen" | AiPhase;
+export const AI_PHASES: readonly AiPhase[] = ["opening", "adjudicating", "resolving", "reviving"];
 
 export interface AdventureOutline {
   id: string;
@@ -91,6 +91,7 @@ export type GameEvent =
   | { type: "op_applied"; op: Op }
   | { type: "op_rejected"; op: unknown; reason: string }
   | { type: "summary"; text: string; throughRound: number }
+  | { type: "party_fallen" }
   | { type: "stall"; phase: AiPhase; error: string };
 
 export interface EventMeta { id: number; campaignId: number; round: number; createdAt: string }
@@ -125,7 +126,8 @@ export type ClientMsg =
   | { t: "action"; characterId: number; text: string }
   | { t: "skip"; characterId: number; by: number }
   | { t: "roll"; characterId: number }
-  | { t: "retry" };
+  | { t: "retry" }
+  | { t: "revive" };
 
 export interface Preset { id: string; name: string; blurb: string; setting: string }
 export interface AdventureInfo { id: string; title: string; pitch: string }

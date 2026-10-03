@@ -16,6 +16,8 @@ export class GameError extends Error {}
 export interface TurnDeps { store: Store; rules: RulesEngine; dm: DungeonMaster; hub: Broadcaster; dice: D20 }
 
 const SUMMARY_EVERY = 10;
+const FALLEN_MESSAGE = "The party has fallen. Revive or start a new campaign.";
+const isHpOp = (o: unknown) => typeof o === "object" && o !== null && ["damage", "heal"].includes(String((o as { op?: unknown }).op));
 const hasResponded = (s: RoundStatus, id: number) => s.actions.some((a) => a.characterId === id) || s.skippedIds.includes(id);
 const nameOf = (chars: Character[], id: number) => chars.find((c) => c.id === id)?.name ?? "Someone";
 
@@ -38,6 +40,7 @@ export class TurnService {
   submitAction(id: number, characterId: number, text: string): Promise<void> {
     return this.locked(id, async () => {
       const c = this.campaign(id);
+      if (c.roundState === "fallen") throw new GameError(FALLEN_MESSAGE);
       if (c.roundState !== "collecting") throw new GameError("It's not time to act right now.");
       const trimmed = text.trim();
       if (!trimmed) throw new GameError("Say what your character does.");
@@ -52,6 +55,7 @@ export class TurnService {
   skip(id: number, characterId: number, by: number): Promise<void> {
     return this.locked(id, async () => {
       const c = this.campaign(id);
+      if (c.roundState === "fallen") throw new GameError(FALLEN_MESSAGE);
       if (c.roundState !== "collecting") throw new GameError("It's not time to act right now.");
       const ch = this.activeCharacter(id, characterId);
       const status = this.status(c);
@@ -67,6 +71,7 @@ export class TurnService {
     return this.locked(id, async () => {
       const { store, rules, dice } = this.deps;
       const c = this.campaign(id);
+      if (c.roundState === "fallen") throw new GameError(FALLEN_MESSAGE);
       if (c.roundState !== "awaiting_rolls") throw new GameError("There's nothing to roll right now.");
       const status = this.status(c);
       const check = status.checks.find((ch) => ch.characterId === characterId && !ch.roll);
@@ -87,7 +92,16 @@ export class TurnService {
       if (c.roundState !== "stalled" || !c.stalledPhase) throw new GameError("Nothing to retry.");
       if (c.stalledPhase === "opening") await this.runOpening(id);
       else if (c.stalledPhase === "adjudicating") await this.runAdjudicate(id);
+      else if (c.stalledPhase === "reviving") await this.runRevive(id);
       else await this.runResolve(id);
+    });
+  }
+
+  revive(id: number): Promise<void> {
+    return this.locked(id, async () => {
+      const c = this.campaign(id);
+      if (c.roundState !== "fallen") throw new GameError("Nobody needs reviving.");
+      await this.runRevive(id);
     });
   }
 
@@ -96,6 +110,14 @@ export class TurnService {
     for (const s of this.deps.store.listCampaigns()) {
       if ((AI_PHASES as readonly string[]).includes(s.roundState)) {
         this.deps.store.updateCampaign(s.id, { roundState: "stalled", stalledPhase: s.roundState as AiPhase });
+      }
+      if (s.roundState === "collecting") {
+        const chars = this.deps.store.getCharacters(s.id);
+        if (chars.length > 0 && chars.every((ch) => this.deps.rules.isDowned(ch))) {
+          const c = this.campaign(s.id);
+          this.deps.store.appendEvent(s.id, Math.max(0, c.roundNumber - 1), { type: "party_fallen" });
+          this.deps.store.updateCampaign(s.id, { roundState: "fallen" });
+        }
       }
     }
   }
@@ -176,6 +198,13 @@ export class TurnService {
     });
   }
 
+  private runRevive(id: number): Promise<void> {
+    return this.runPhase(id, "reviving", async () => {
+      const out = await this.deps.dm.revive(buildContext(this.deps.store, id), this.stream(id));
+      this.commitNarration(id, out, "revive");
+    });
+  }
+
   private runAdjudicate(id: number): Promise<void> {
     return this.runPhase(id, "adjudicating", async () => {
       const { store, dm } = this.deps;
@@ -222,17 +251,24 @@ export class TurnService {
   }
 
   /** Applies a DM reply atomically. Characters are re-read here so changes made during generation survive. */
-  private commitNarration(id: number, out: ResolveOutput): void {
+  private commitNarration(id: number, out: ResolveOutput, mode: "normal" | "revive" = "normal"): void {
     const { store, rules } = this.deps;
     store.transaction(() => {
       const c = this.campaign(id);
-      const result = rules.applyOps(store.getCharacters(id), out.changes);
+      const blocked = mode === "revive" ? out.changes.filter(isHpOp) : [];
+      const changes = mode === "revive" ? out.changes.filter((o) => !isHpOp(o)) : out.changes;
+      const result = rules.applyOps(store.getCharacters(id), changes, store.getNpcs(id));
+      if (mode === "revive") for (const ch of result.characters) ch.hp = rules.reviveHp(ch);
       for (const ch of result.characters) store.saveCharacter(ch);
+      store.saveNpcs(id, result.npcs);
       store.appendEvent(id, c.roundNumber, { type: "narration", text: out.narration });
       for (const op of result.applied) store.appendEvent(id, c.roundNumber, { type: "op_applied", op });
       for (const r of result.rejected) store.appendEvent(id, c.roundNumber, { type: "op_rejected", op: r.op, reason: r.reason });
+      for (const op of blocked) store.appendEvent(id, c.roundNumber, { type: "op_rejected", op, reason: "HP is set by the revive" });
+      const fallen = mode === "normal" && result.characters.length > 0 && result.characters.every((ch) => rules.isDowned(ch));
+      if (fallen) store.appendEvent(id, c.roundNumber, { type: "party_fallen" });
       store.updateCampaign(id, {
-        roundState: "collecting", stalledPhase: null, roundNumber: c.roundNumber + 1,
+        roundState: fallen ? "fallen" : "collecting", stalledPhase: null, roundNumber: c.roundNumber + 1,
         ...(result.sceneTitle ? { sceneTitle: result.sceneTitle } : {}),
       });
     });

@@ -16,7 +16,8 @@ class FakeDm implements DungeonMaster {
   resolveCalls: ResolveInput[] = [];
   nextChecks: CheckDraft[] = [];
   nextChanges: unknown[] = [];
-  failNext: "adjudicate" | "resolve" | "opening" | null = null;
+  nextReviveChanges: unknown[] = [];
+  failNext: "adjudicate" | "resolve" | "opening" | "revive" | null = null;
   summaries = 0;
   summariseFailNext = false;
   summariseGate: Promise<void> | null = null;
@@ -44,7 +45,13 @@ class FakeDm implements DungeonMaster {
     stream.onChunk("Once");
     return { narration: "Once upon a time.", changes: [{ op: "set_scene", title: "The Gate" }] };
   }
-  async revive() { return { narration: "Revived.", changes: [] }; }
+  async revive(_ctx: DmContext, stream: StreamHandlers) {
+    await tick();
+    if (this.failNext === "revive") { this.failNext = null; throw new DmError("revive failed"); }
+    stream.onChunk("You wake");
+    const changes = this.nextReviveChanges; this.nextReviveChanges = [];
+    return { narration: "You wake in a cell.", changes };
+  }
   async startingKit() { return [{ name: "Rope", description: "30ft" }]; }
   async summarise(_old: string, rounds: unknown[]) {
     this.summaries++;
@@ -247,7 +254,7 @@ describe("TurnService", () => {
     await turns.submitAction(id, chars[1].id, "I crawl");
     expect(store.getCampaign(id)!.roundState).toBe("collecting"); // waiting for Corvin too
     await turns.submitAction(id, chars[0].id, "I gasp");
-    expect(store.getCampaign(id)!.roundNumber).toBe(3);
+    expect(store.getCampaign(id)).toMatchObject({ roundNumber: 3, roundState: "fallen" });
   });
 
   it("recoverInterrupted turns AI phases into stalls", async () => {
@@ -304,5 +311,74 @@ describe("TurnService", () => {
     await turns.submitAction(id, chars[0].id, "I wait");
     const snap = hub.msgs.filter((m) => m.t === "snapshot").at(-1);
     expect(snap && snap.t === "snapshot" && snap.snapshot.round.actions).toEqual([{ characterId: chars[0].id, text: "I wait" }]);
+  });
+
+  it("the party falls when every hero ends a round at 0 HP, and nobody can act", async () => {
+    const { store, dm, turns, id, chars } = await begun();
+    dm.nextChanges = [{ op: "damage", character: "Corvin", amount: 50 }, { op: "damage", character: "Wren", amount: 50 }];
+    await turns.submitAction(id, chars[0].id, "I charge");
+    await turns.submitAction(id, chars[1].id, "I charge too");
+    expect(store.getCampaign(id)).toMatchObject({ roundState: "fallen", roundNumber: 2 });
+    expect(store.getEvents(id).some((e) => e.type === "party_fallen")).toBe(true);
+    const msg = "The party has fallen. Revive or start a new campaign.";
+    await expect(turns.submitAction(id, chars[0].id, "I crawl")).rejects.toThrow(msg);
+    await expect(turns.skip(id, chars[0].id, chars[0].id)).rejects.toThrow(msg);
+    await expect(turns.roll(id, chars[0].id)).rejects.toThrow(msg);
+  });
+
+  it("revive brings everyone back at half HP and ignores HP changes from the DM", async () => {
+    const { store, dm, turns, id, chars } = await begun();
+    dm.nextChanges = [{ op: "damage", character: "Corvin", amount: 50 }, { op: "damage", character: "Wren", amount: 50 }];
+    await turns.submitAction(id, chars[0].id, "a");
+    await turns.submitAction(id, chars[1].id, "b");
+    dm.nextReviveChanges = [
+      { op: "heal", character: "Corvin", amount: 20 },
+      { op: "damage", character: "Wren", amount: 3 },
+      { op: "set_scene", title: "The Cells" },
+      { op: "npc", name: "Jailer", attitude: "wary", condition: "unhurt" },
+    ];
+    await turns.revive(id);
+    expect(store.getCharacters(id).map((c) => c.hp)).toEqual([10, 10]);
+    expect(store.getCampaign(id)).toMatchObject({ roundState: "collecting", roundNumber: 3, sceneTitle: "The Cells" });
+    expect(store.getNpcs(id)).toEqual([{ name: "Jailer", attitude: "wary", condition: "unhurt" }]);
+    const rejected = store.getEvents(id).filter((e) => e.type === "op_rejected");
+    expect(rejected.map((e) => e.type === "op_rejected" && e.reason)).toEqual(["HP is set by the revive", "HP is set by the revive"]);
+    await expect(turns.revive(id)).rejects.toThrow("Nobody needs reviving.");
+  });
+
+  it("a failed revive stalls and can be retried", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "damage", character: "Corvin", amount: 50 }];
+    await turns.submitAction(id, chars[0].id, "a");
+    dm.failNext = "revive";
+    await turns.revive(id);
+    expect(store.getCampaign(id)).toMatchObject({ roundState: "stalled", stalledPhase: "reviving" });
+    await turns.retry(id);
+    expect(store.getCampaign(id)!.roundState).toBe("collecting");
+    expect(store.getCharacter(chars[0].id)!.hp).toBe(10);
+  });
+
+  it("recoverInterrupted turns a collecting campaign whose heroes are all at 0 HP into fallen", async () => {
+    const a = await begun();
+    for (const ch of a.chars) a.store.saveCharacter({ ...a.store.getCharacter(ch.id)!, hp: 0 });
+    a.turns.recoverInterrupted();
+    expect(a.store.getCampaign(a.id)!.roundState).toBe("fallen");
+    expect(a.store.getEvents(a.id).some((e) => e.type === "party_fallen")).toBe(true);
+
+    const b = await begun();
+    b.store.saveCharacter({ ...b.store.getCharacter(b.chars[0].id)!, hp: 0 });
+    b.turns.recoverInterrupted();
+    expect(b.store.getCampaign(b.id)!.roundState).toBe("collecting");
+  });
+
+  it("NPCs persist across rounds and appear in snapshots", async () => {
+    const { store, dm, hub, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "npc", name: "Scarred Brute", attitude: "hostile", condition: "unhurt" }];
+    await turns.submitAction(id, chars[0].id, "I look around");
+    dm.nextChanges = [{ op: "npc", name: "scarred brute", attitude: "hostile", condition: "wounded" }];
+    await turns.submitAction(id, chars[0].id, "I hit him");
+    expect(store.getNpcs(id)).toEqual([{ name: "scarred brute", attitude: "hostile", condition: "wounded" }]);
+    const snap = hub.msgs.filter((m) => m.t === "snapshot").at(-1);
+    expect(snap && snap.t === "snapshot" && snap.snapshot.npcs).toEqual([{ name: "scarred brute", attitude: "hostile", condition: "wounded" }]);
   });
 });

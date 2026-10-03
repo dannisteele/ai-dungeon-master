@@ -146,6 +146,8 @@ describe("API", () => {
     expect(await waitFor((m) => m.t === "snapshot" && m.snapshot.campaign.roundNumber === 2)).toBeTruthy();
     ws.send(JSON.stringify({ t: "roll", characterId: character.id }));
     expect(await waitFor((m) => m.t === "error")).toMatchObject({ message: "There's nothing to roll right now." });
+    ws.send(JSON.stringify({ t: "revive" }));
+    expect(await waitFor((m) => m.t === "error" && m.message === "Nobody needs reviving.")).toBeTruthy();
     ws.send("garbage");
     expect(await waitFor((m) => m.t === "error" && m.message === "That message didn't make sense.")).toBeTruthy();
     ws.terminate();
