@@ -98,4 +98,30 @@ describe("store", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("merges case-insensitive duplicate items in a kit", () => {
+    store = createStore(":memory:");
+    const campaign = store.createCampaign({ title: "Test", mode: "party", setting: "Fantasy", pitch: "", outline: null });
+    const character = store.createCharacter({
+      campaignId: campaign.id, name: "Hero", concept: "adventurer", scores, hp: 24, maxHp: 24,
+      items: [
+        { name: "Rope", description: "30ft", qty: 1 },
+        { name: "rope", description: "different", qty: 2 },
+      ],
+    });
+    expect(character.items).toEqual([{ name: "Rope", description: "30ft", qty: 3 }]);
+  });
+
+  it("still rejects duplicate character names even after item merging", () => {
+    store = createStore(":memory:");
+    const campaign = store.createCampaign({ title: "Test", mode: "party", setting: "Fantasy", pitch: "", outline: null });
+    store.createCharacter({
+      campaignId: campaign.id, name: "Corvin", concept: "knight", scores, hp: 24, maxHp: 24,
+      items: [{ name: "Rope", description: "30ft", qty: 1 }],
+    });
+    expect(() => store.createCharacter({
+      campaignId: campaign.id, name: "corvin", concept: "x", scores, hp: 20, maxHp: 20,
+      items: [{ name: "Rope", description: "30ft", qty: 1 }],
+    })).toThrow(NameTakenError);
+  });
 });

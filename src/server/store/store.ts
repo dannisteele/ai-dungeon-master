@@ -145,6 +145,20 @@ export function createStore(path: string): Store {
     },
     createCharacter(i) {
       try {
+        // Merge items with case-insensitive duplicate names
+        const mergedItems: Item[] = [];
+        const seenNames = new Map<string, Item>();
+        for (const item of i.items) {
+          const lowerName = item.name.trim().toLowerCase();
+          const existing = seenNames.get(lowerName);
+          if (existing) {
+            existing.qty += item.qty;
+          } else {
+            seenNames.set(lowerName, { ...item });
+            mergedItems.push(seenNames.get(lowerName)!);
+          }
+        }
+
         const id = db.transaction(() => {
           const info = db.prepare(`INSERT INTO characters (campaign_id, name, concept, hp, max_hp, str, dex, con, int, wis, cha)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
@@ -152,12 +166,13 @@ export function createStore(path: string): Store {
             i.scores.STR, i.scores.DEX, i.scores.CON, i.scores.INT, i.scores.WIS, i.scores.CHA,
           );
           const cid = Number(info.lastInsertRowid);
-          for (const it of i.items) insertItem.run(cid, it.name, it.description, it.qty);
+          for (const it of mergedItems) insertItem.run(cid, it.name, it.description, it.qty);
           return cid;
         })();
         return store.getCharacter(id)!;
       } catch (e) {
-        if ((e as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
+        const errorMsg = (e as { message?: string }).message || "";
+        if (errorMsg.includes("ux_characters_name")) {
           throw new NameTakenError(`There's already a hero called ${i.name} in this campaign.`);
         }
         throw e;
