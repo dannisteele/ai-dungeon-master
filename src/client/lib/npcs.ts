@@ -13,3 +13,11 @@ export function appendAction(current: string, sentence: string): string {
   const kept = current.trimEnd();
   return kept ? `${kept} ${sentence}` : sentence;
 }
+
+/**
+ * Keeps the NPC quick-action menu inside its container: never past the left edge, and never
+ * past the right edge. If the container is narrower than the menu, pins it to the left edge.
+ */
+export function clampMenuLeft(desired: number, menuWidth: number, containerWidth: number): number {
+  return Math.max(0, Math.min(desired, containerWidth - menuWidth));
+}

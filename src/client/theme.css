@@ -119,7 +119,7 @@ label.stack > span { color: var(--muted); font-size: .9rem; }
    container forces overflow-y to auto too, which would clip an absolutely positioned
    menu vertically. Its left offset is computed in JS from the chip's offsetLeft minus
    the strip's scrollLeft. */
-.npc-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30; display: flex; flex-direction: column; min-width: 9rem; background: #1f150d; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden; }
+.npc-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30; display: flex; flex-direction: column; min-width: 9rem; max-width: 100%; background: #1f150d; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden; }
 .npc-menu button { background: none; border: 0; color: var(--text); text-align: left; padding: .5em .9em; font: inherit; cursor: pointer; }
 .npc-menu button:hover, .npc-menu button:focus-visible { background: var(--panel); outline: none; }
 /* The party falls */
