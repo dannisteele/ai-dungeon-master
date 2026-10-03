@@ -69,7 +69,7 @@ export function CharacterSheet({ snapshot, me, open, onClose }: Props) {
           <h3>Party</h3>
           {others.map((c) => (
             <div key={c.id} className="party-card">
-              <div className="row spread small"><b>{c.name}</b><span className="muted">HP {c.hp}/{c.maxHp}</span></div>
+              <div className="row spread small"><b>{c.name}</b><span className="muted">HP {c.hp}/{c.maxHp}{c.hp <= 0 && <b className="fail"> · DOWN</b>}</span></div>
               <div className="hp-bar thin"><div style={{ width: pct(c) }} /></div>
             </div>
           ))}
