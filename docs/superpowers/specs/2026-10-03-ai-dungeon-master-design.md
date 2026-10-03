@@ -15,7 +15,7 @@ The immediate goal is a **proof of concept on Dani's Mac** (Apple M5, 32 GB). Th
 |---|---|
 | Play modes | Both: shared party campaigns and solo campaigns |
 | Turn structure | Round-based; Dungeon Master waits for all actions, with a "go ahead without me" skip |
-| Rules | Light rules now (4 stats, HP, d20 checks); rules module swappable so full 5e can come later |
+| Rules | Light rules now (5e ability scores, HP, d20 checks); rules module swappable so full 5e can come later |
 | Campaign start | Preset settings or custom pitch now; hand-written adventure outlines supported, one sample shipped |
 | Visual style | "Candlelit Tavern" — dark wood, warm gold glow, Cinzel headings, Spectral body text |
 | Devices | Laptops and phones (responsive) |
@@ -80,13 +80,16 @@ Requests are rejected (403) unless the remote address is loopback or private: `1
 
 ## 4. Light rules
 
-- **Stats:** STR, DEX, WIT, CHA. Each stat is a modifier.
-  - Creation: start at 0, spend **4 points**, no stat above **+3**.
-  - Hard bounds at all times: **−1 to +5**.
-- **HP:** max HP starts at **20**. Current HP is clamped to `0..maxHp`.
+Ability scores follow D&D 5e; everything else stays light (no classes, spells, AC or initiative).
+
+- **Abilities:** STR, DEX, CON, INT, WIS, CHA, stored as 5e **scores**.
+  - **Modifier** = `floor((score − 10) / 2)` (e.g. 8 → −1, 10 → +0, 15 → +2, 20 → +5).
+  - Creation: 5e **point buy** — every score starts at 8, **27 points** to spend, scores 8–15 before adjustment. Cost per score: 8→0, 9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9.
+  - Hard bounds at all times: **1 to 20**.
+- **HP:** max HP = **20 + 2 × CON modifier** at creation (min 10). Current HP is clamped to `0..maxHp`. If CON changes later, max HP is recalculated with the same formula plus level bonuses.
 - **Downed:** at 0 HP a character is *downed*: cannot submit actions until healed above 0. The DM is told.
-- **Checks:** `d20 + stat ≥ DC`. DC range 5–25. Natural 20 always succeeds (critical); natural 1 always fails (fumble).
-- **Level up:** +5 max HP, heal 5, and +1 to a stat of the player's choice (player chooses in the sheet; capped by bounds).
+- **Checks:** `d20 + ability modifier ≥ DC`. DC range 5–25. Natural 20 always succeeds (critical); natural 1 always fails (fumble).
+- **Level up:** max HP + `max(1, 5 + CON modifier)`, heal by the same amount, and **2 ability points** to assign (both to one score or 1+1 to two scores, 5e ASI style), chosen by the player in the sheet; capped at 20.
 - **Inventory:** items have name, description, quantity ≥ 1. Removing to 0 deletes the item.
 
 ### State-change ops (the only way the DM changes state)
@@ -97,7 +100,7 @@ type Op =
   | { op: "heal";        character: string; amount: number }        // 1..50
   | { op: "add_item";    character: string; name: string; description: string; qty?: number }
   | { op: "remove_item"; character: string; name: string; qty?: number }
-  | { op: "adjust_stat"; character: string; stat: "STR"|"DEX"|"WIT"|"CHA"; delta: -1 | 1 }
+  | { op: "adjust_stat"; character: string; stat: "STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA"; delta: -1 | 1 }  // changes the score by 1
   | { op: "level_up";    character: string }
   | { op: "set_scene";   title: string };
 ```
@@ -162,7 +165,7 @@ A token estimate (chars ÷ 4) keeps the prompt under a configurable budget (defa
 campaigns(id, title, mode['solo'|'party'], setting, pitch, outline_json NULL,
           scene_title, summary, round_state, round_number, created_at, updated_at)
 characters(id, campaign_id, name, concept, level, hp, max_hp,
-           str, dex, wit, cha, pending_stat_points, created_at)
+           str, dex, con, int, wis, cha, pending_ability_points, created_at)
 items(id, character_id, name, description, qty)
 events(id, campaign_id, round_number, type, payload_json, created_at)
   -- type: action | skip | check_request | roll | narration | op_applied | op_rejected | summary | stall
@@ -179,12 +182,12 @@ The story view is rebuilt from `events`. Devices remember their chosen character
 1. **Password gate**
 2. **Lobby** — campaigns list (title, mode, scene, last played), "New campaign", "Join" (pick or create character).
 3. **New campaign** — choose preset (*Classic Fantasy, Gothic Horror, Pirate Seas, Sci-fi Derelict*), write a custom pitch, or pick an adventure outline; choose solo/party.
-4. **Character creation** — name, concept, 4 stat points (steppers), suggested starting kit (accept / regenerate).
+4. **Character creation** — name, concept, 27-point buy across six abilities (steppers showing score, modifier and points left), suggested starting kit (accept / regenerate).
 5. **Play screen**
    - Story column: scrolling narration (streams in), player actions styled in italic gold-name lines, roll results inline, scene title header.
    - Action bar: text input, ready indicators ("Rach ✓ · Dani …"), skip buttons, **Roll d20** button when a check is pending.
-   - Character sheet: name, concept, level, HP bar, 4 stats, inventory with "✦ new" glow on fresh items, level-up stat picker when points are pending. Party members shown as compact cards.
-   - Dice overlay: 3D d20 rolls across the screen on all devices, lands on the server's number, then shows `16 + 2 STR = 18 vs DC 14 ✓`. Gold burst on nat 20, red crack on nat 1.
+   - Character sheet: name, concept, level, HP bar, six abilities (score + modifier), inventory with "✦ new" glow on fresh items, level-up ability picker when points are pending. Party members shown as compact cards.
+   - Dice overlay: 3D d20 rolls across the screen on all devices, lands on the server's number, then shows `16 + 2 (STR) = 18 vs DC 14 ✓`. Gold burst on nat 20, red crack on nat 1.
 
 ### Responsive
 
@@ -197,7 +200,7 @@ Background `#1a120c` with radial glow `#3a2516`; text `#ead9b8`; muted `#b89c74`
 
 ## 9. Testing
 
-- **rules** (unit): checks incl. nat 1/20, creation limits, every op's valid/invalid paths, bounds and clamping, downed state.
+- **rules** (unit): checks incl. nat 1/20, point-buy costs and limits, modifier formula, HP from CON, every op's valid/invalid paths, bounds and clamping, downed state.
 - **turns** (unit, fake DM + in-memory store): party collection, self-skip, "don't wait", solo, rolls by owner and by proxy, stall and retry, restart mid-round.
 - **dm** (unit, fake Ollama): schema enforcement, single retry, stall after second failure, streaming narration extraction, prompt contents and budget trimming.
 - **store** (integration, temp SQLite): round transaction atomicity; story rebuilt identically after reopen.
