@@ -5,7 +5,7 @@ import type { DmContext, RoundTranscript } from "./context";
 import { NarrationExtractor } from "./narrationStream";
 import { OllamaError, type ChatClient, type ChatMessage } from "./ollama";
 import {
-  adjudicateTask, buildMessages, kitMessages, openingTask, resolveTask, summaryMessages,
+  adjudicateTask, buildMessages, kitMessages, openingTask, resolveTask, summaryMessages, reviveTask,
   type ActionInput, type ResolveInput,
 } from "./prompts";
 import {
@@ -21,6 +21,7 @@ export interface DungeonMaster {
   adjudicate(ctx: DmContext, actions: ActionInput[]): Promise<CheckDraft[]>;
   resolve(ctx: DmContext, input: ResolveInput, stream: StreamHandlers): Promise<ResolveOutput>;
   opening(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
+  revive(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
   startingKit(input: { name: string; concept: string; setting: string }): Promise<KitItem[]>;
   summarise(oldSummary: string, rounds: RoundTranscript[]): Promise<string>;
 }
@@ -70,6 +71,9 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
     },
     opening(ctx, stream) {
       return callStructured(buildMessages(ctx, rules, openingTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);
+    },
+    revive(ctx, stream) {
+      return callStructured(buildMessages(ctx, rules, reviveTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     async startingKit(input) {
       const out = await callStructured(kitMessages(input), KitSchema, kitFormat);

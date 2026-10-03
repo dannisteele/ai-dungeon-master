@@ -44,6 +44,7 @@ class FakeDm implements DungeonMaster {
     stream.onChunk("Once");
     return { narration: "Once upon a time.", changes: [{ op: "set_scene", title: "The Gate" }] };
   }
+  async revive() { return { narration: "Revived.", changes: [] }; }
   async startingKit() { return [{ name: "Rope", description: "30ft" }]; }
   async summarise(_old: string, rounds: unknown[]) {
     this.summaries++;

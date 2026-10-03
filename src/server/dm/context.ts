@@ -1,9 +1,9 @@
 import { formatModifier } from "../../shared/abilities";
-import type { Campaign, Character, StoredEvent } from "../../shared/types";
+import type { Campaign, Character, StoredEvent, Npc } from "../../shared/types";
 import type { Store } from "../store/store";
 
 export interface RoundTranscript { round: number; lines: string[] }
-export interface DmContext { campaign: Campaign; characters: Character[]; recentRounds: RoundTranscript[] }
+export interface DmContext { campaign: Campaign; characters: Character[]; npcs: Npc[]; recentRounds: RoundTranscript[] }
 
 export function transcriptFromEvents(events: StoredEvent[], characters: Character[]): RoundTranscript[] {
   const name = (id: number) => characters.find((c) => c.id === id)?.name ?? "Someone";
@@ -48,9 +48,10 @@ export function buildContext(store: Store, campaignId: number, rounds = 10): DmC
   const campaign = store.getCampaign(campaignId);
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
   const characters = store.getCharacters(campaignId);
+  const npcs = store.getNpcs(campaignId);
   const events = campaign.roundNumber === 0 ? [] : store.getEvents(campaignId, {
     fromRound: Math.max(0, campaign.roundNumber - rounds),
     toRound: campaign.roundNumber - 1,
   });
-  return { campaign, characters, recentRounds: transcriptFromEvents(events, characters) };
+  return { campaign, characters, npcs, recentRounds: transcriptFromEvents(events, characters) };
 }

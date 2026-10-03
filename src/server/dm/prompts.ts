@@ -1,5 +1,5 @@
 import { formatModifier, modifier } from "../../shared/abilities";
-import { ABILITIES, type Ability, type Campaign, type Character, type Crit } from "../../shared/types";
+import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type Npc } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
 import type { DmContext, RoundTranscript } from "./context";
 import type { ChatMessage } from "./ollama";
@@ -36,6 +36,7 @@ export function systemPrompt(rules: RulesEngine): string {
     "- Danger is real. When an enemy attacks, a trap springs or a risky check fails, someone usually gets hurt: narrate the hit and add a damage op (1-4 minor, 5-8 serious, 9-15 deadly). A natural 1 in a dangerous moment always costs HP.",
     "- When characters find, loot, buy or are given something they could carry (coins, keys, potions, notes, trophies), add_item it. When they use up, give away, throw, break or lose an item, remove_item it. Rest, potions and healing restore HP with heal.",
     "- Use set_scene whenever the party arrives somewhere new.",
+    "- Keep the Nearby list true: when a notable NPC or group appears, add them with an npc op; when their attitude or condition changes (an attack lands, they are persuaded, they flee), update them; when they leave, npc_gone them. Put set_scene before npc ops when the party moves.",
     "- Use characters' exact names. Only remove items a character actually has (see the party sheet).",
     "- Only remove items when the story takes, uses up, breaks or loses them. Downed or dead characters keep their belongings unless someone takes them.",
     "- Keep magic items, adjust_stat and level_up rare; level_up only after a major victory or milestone.",
@@ -67,6 +68,11 @@ export function partyBlock(chars: Character[]): string {
     return `- ${c.name} (${c.concept}): Level ${c.level}, HP ${c.hp}/${c.maxHp}${c.hp <= 0 ? " [DOWNED]" : ""}. ${abilities}. Carrying: ${items}.`;
   });
   return ["Party (authoritative character sheets):", ...lines].join("\n");
+}
+
+export function nearbyBlock(npcs: Npc[]): string {
+  if (npcs.length === 0) return "Nearby: nobody notable.";
+  return ["Nearby (authoritative):", ...npcs.map((n) => `- ${n.name}: ${n.attitude}, ${n.condition}`)].join("\n");
 }
 
 export function adjudicateTask(actions: ActionInput[]): string {
@@ -106,7 +112,16 @@ export function resolveTask(input: ResolveInput): string {
 export function openingTask(): string {
   return [
     "Begin the adventure. Introduce the party in the opening scene in 2-4 short paragraphs and end with a clear prompt for them to act.",
-    "Include a set_scene op naming the opening location. Do not add items: the characters already have their starting kits.",
+    "Include a set_scene op naming the opening location, and an npc op for each notable character or group present. Do not add items: the characters already have their starting kits.",
+    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}.',
+  ].join("\n");
+}
+
+export function reviveTask(): string {
+  return [
+    "The whole party has fallen. Narrate, in 2-3 short paragraphs, how they survive against the odds: they might be captured, rescued by someone unexpected, or wake somewhere strange.",
+    "Keep consequences: enemies who beat them may still be around, and things may have been taken from them (remove_item those).",
+    "Do not add heal ops: the app restores everyone to half health. You may use set_scene, npc and npc_gone. End by inviting the players to act.",
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}.',
   ].join("\n");
 }
@@ -149,6 +164,7 @@ export function buildMessages(ctx: DmContext, rules: RulesEngine, task: string, 
   const render = () => [
     campaignBlock(ctx.campaign),
     partyBlock(ctx.characters),
+    nearbyBlock(ctx.npcs),
     ctx.campaign.summary ? `Story so far:\n${ctx.campaign.summary}` : "",
     rounds.length ? `Recent rounds:\n${rounds.map((r) => r.lines.join("\n")).join("\n\n")}` : "",
     task,

@@ -16,6 +16,7 @@ const fakeDm = (over: Partial<DungeonMaster> = {}): DungeonMaster => ({
   adjudicate: async () => [],
   resolve: async (_c, input) => ({ narration: `Resolved ${input.actions.length}`, changes: [] }),
   opening: async () => ({ narration: "It begins.", changes: [] }),
+  revive: async () => ({ narration: "You wake.", changes: [] }),
   startingKit: async () => [{ name: "Rope", description: "30ft" }],
   summarise: async () => "summary",
   ...over,

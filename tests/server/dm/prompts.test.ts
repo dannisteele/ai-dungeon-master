@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DmContext } from "../../../src/server/dm/context";
-import { adjudicateTask, buildMessages, estimateTokens, partyBlock, resolveTask, systemPrompt } from "../../../src/server/dm/prompts";
+import { adjudicateTask, buildMessages, estimateTokens, partyBlock, resolveTask, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
 import { toFormat, resolveFormatSchema, AdjudicateSchema } from "../../../src/server/dm/schemas";
 import { lightRules } from "../../../src/server/rules/engine";
 import type { Campaign, Character } from "../../../src/shared/types";
@@ -54,7 +54,7 @@ describe("prompts", () => {
   });
 
   it("buildMessages includes outline, summary and recent rounds", () => {
-    const ctx: DmContext = { campaign, characters: [corvin], recentRounds: [{ round: 2, lines: ["DM: older"] }] };
+    const ctx: DmContext = { campaign, characters: [corvin], npcs: [], recentRounds: [{ round: 2, lines: ["DM: older"] }] };
     const [system, user] = buildMessages(ctx, lightRules, "TASK", 12000);
     expect(system.role).toBe("system");
     expect(system.content).toContain("Never invent dice results");
@@ -67,7 +67,7 @@ describe("prompts", () => {
   it("drops the oldest rounds first to fit the budget", () => {
     const big = "x".repeat(4000);
     const ctx: DmContext = {
-      campaign, characters: [corvin],
+      campaign, characters: [corvin], npcs: [],
       recentRounds: Array.from({ length: 10 }, (_, i) => ({ round: i, lines: [`DM: r${i} ${big}`] })),
     };
     const msgs = buildMessages(ctx, lightRules, "TASK", 6000);
@@ -83,5 +83,22 @@ describe("prompts", () => {
     expect(adj.properties.checks.type).toBe("array");
     const res = toFormat(resolveFormatSchema(lightRules)) as any;
     expect(Object.keys(res.properties)).toEqual(["narration", "changes"]);
+  });
+
+  it("shows the DM who is nearby", () => {
+    expect(nearbyBlock([])).toBe("Nearby: nobody notable.");
+    expect(nearbyBlock([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]))
+      .toBe("Nearby (authoritative):\n- Scarred Brute: hostile, wounded");
+    const ctx: DmContext = { campaign, characters: [corvin], npcs: [{ name: "Jailer", attitude: "wary", condition: "unhurt" }], recentRounds: [] };
+    const [system, user] = buildMessages(ctx, lightRules, "TASK", 12000);
+    expect(user.content).toContain("- Jailer: wary, unhurt");
+    expect(system.content).toContain("Keep the Nearby list true");
+    expect(openingTask()).toContain("npc op for each notable character or group");
+  });
+
+  it("asks for a revive twist without HP changes", () => {
+    const t = reviveTask();
+    expect(t).toContain("The whole party has fallen.");
+    expect(t).toContain("Do not add heal ops: the app restores everyone to half health.");
   });
 });

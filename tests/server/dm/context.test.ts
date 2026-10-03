@@ -63,9 +63,11 @@ describe("transcripts", () => {
     const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });
     for (let r = 0; r <= 14; r++) store.appendEvent(c.id, r, { type: "narration", text: `round ${r}` });
     store.updateCampaign(c.id, { roundNumber: 14 });
+    store.saveNpcs(c.id, [{ name: "Rat", attitude: "hostile", condition: "unhurt" }]);
     const ctx = buildContext(store, c.id, 10);
     expect(ctx.recentRounds.map((r) => r.round)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     expect(ctx.campaign.id).toBe(c.id);
+    expect(ctx.npcs).toEqual([{ name: "Rat", attitude: "hostile", condition: "unhurt" }]);
   });
 
   it("renders NPC ops as [NPC] lines", () => {
