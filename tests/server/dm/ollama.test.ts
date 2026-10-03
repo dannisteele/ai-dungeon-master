@@ -26,7 +26,10 @@ describe("ollama client", () => {
     expect(out).toBe('{"narration": "Hi"}');
     expect(tokens.join("")).toBe(out);
     expect(calls[0].url).toBe("http://ollama:11434/api/chat");
-    expect(calls[0].body).toMatchObject({ model: "qwen", stream: true, think: false, keep_alive: "30m", format: { type: "object" } });
+    expect(calls[0].body).toMatchObject({
+      model: "qwen", stream: true, think: false, keep_alive: "30m", format: { type: "object" },
+      options: { temperature: 0.8, num_ctx: 16384 },
+    });
   });
 
   it("wraps network failures in OllamaError", async () => {
@@ -43,12 +46,49 @@ describe("ollama client", () => {
     await expect(inStream.chat({ messages: [], format: {} })).rejects.toThrow(/out of memory/);
   });
 
-  it("times out", async () => {
-    const fetchImpl = ((_u: string, init: RequestInit) => new Promise((_, reject) => {
-      init.signal!.addEventListener("abort", () => reject(init.signal!.reason));
-    })) as typeof fetch;
+  function delayedStreamResponse(parts: { text: string; delayMs: number }[]): Response {
+    const enc = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      async start(c) {
+        for (const p of parts) {
+          await new Promise((r) => setTimeout(r, p.delayMs));
+          c.enqueue(enc.encode(p.text));
+        }
+        c.close();
+      },
+    });
+    return new Response(body, { status: 200 });
+  }
+
+  it("succeeds when tokens keep arriving within the idle timeout, even if the whole stream runs longer than it", async () => {
+    const fetchImpl = (async () => delayedStreamResponse([
+      { text: '{"message":{"content":"a"}}\n', delayMs: 30 },
+      { text: '{"message":{"content":"b"}}\n', delayMs: 30 },
+      { text: '{"message":{"content":"c"}}\n', delayMs: 30 },
+      { text: '{"done":true}\n', delayMs: 30 },
+    ])) as typeof fetch;
     const client = createOllamaClient({ url: "http://x", model: "m", keepAlive: "30m", fetchImpl });
-    await expect(client.chat({ messages: [], format: {}, timeoutMs: 20 })).rejects.toThrow(OllamaError);
+    const out = await client.chat({ messages: [], format: {}, timeoutMs: 50 });
+    expect(out).toBe("abc");
+  });
+
+  it("rejects with OllamaError when the stream stalls after the first token", async () => {
+    const enc = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      async start(c) {
+        c.enqueue(enc.encode('{"message":{"content":"a"}}\n'));
+        // never enqueue again and never close: simulates a stalled stream.
+      },
+    });
+    const fetchImpl = (async () => new Response(body, { status: 200 })) as typeof fetch;
+    const client = createOllamaClient({ url: "http://x", model: "m", keepAlive: "30m", fetchImpl });
+    await expect(client.chat({ messages: [], format: {}, timeoutMs: 30 })).rejects.toThrow(OllamaError);
+  });
+
+  it("rejects when no first token arrives within firstTokenTimeoutMs", async () => {
+    const fetchImpl = (() => new Promise(() => { /* never resolves: Ollama never answers */ })) as typeof fetch;
+    const client = createOllamaClient({ url: "http://x", model: "m", keepAlive: "30m", fetchImpl });
+    await expect(client.chat({ messages: [], format: {}, firstTokenTimeoutMs: 20 })).rejects.toThrow(OllamaError);
   });
 
   it("unload sends keep_alive 0 for the model", async () => {

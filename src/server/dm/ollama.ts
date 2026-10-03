@@ -1,5 +1,13 @@
 export interface ChatMessage { role: "system" | "user" | "assistant"; content: string }
-export interface ChatRequest { messages: ChatMessage[]; format: object; onToken?: (t: string) => void; timeoutMs?: number }
+export interface ChatRequest {
+  messages: ChatMessage[];
+  format: object;
+  onToken?: (t: string) => void;
+  /** Max idle time between tokens once streaming has started. Default 90s. */
+  timeoutMs?: number;
+  /** Max time to wait for the first token. Default 180s. */
+  firstTokenTimeoutMs?: number;
+}
 export interface ChatClient {
   chat(req: ChatRequest): Promise<string>;
   /** Ask Ollama to drop the model from memory now (keep_alive: 0). */
@@ -25,16 +33,34 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
   }
 
   return {
-    async chat({ messages, format, onToken, timeoutMs = 90_000 }) {
+    async chat({ messages, format, onToken, timeoutMs = 90_000, firstTokenTimeoutMs = 180_000 }) {
+      // Ollama serves one request at a time: a queued request can sit for a long time before
+      // the first token, but once tokens are flowing a healthy stream shouldn't go idle for long.
+      // We time out on inactivity (reset on every chunk) rather than on total request duration.
+      const controller = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const clearTimer = () => clearTimeout(timer);
+      const raceTimeout = <T>(p: Promise<T>, ms: number): Promise<T> => new Promise((resolve, reject) => {
+        clearTimer();
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new OllamaError(`Ollama: no response for ${ms}ms`));
+        }, ms);
+        p.then(
+          (v) => { clearTimer(); resolve(v); },
+          (e) => { clearTimer(); reject(e); },
+        );
+      });
       try {
-        const res = await post("/api/chat", {
+        const res = await raceTimeout(post("/api/chat", {
           model: opts.model, messages, format, stream: true, think: false, keep_alive: opts.keepAlive,
-          options: { temperature: 0.8 },
-        }, AbortSignal.timeout(timeoutMs));
+          options: { temperature: 0.8, num_ctx: 16384 },
+        }, controller.signal), firstTokenTimeoutMs);
         if (!res.body) throw new OllamaError("Ollama sent an empty response");
         const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
         let buf = "";
         let out = "";
+        let gotFirstChunk = false;
         const handle = (line: string) => {
           if (!line.trim()) return;
           const msg = JSON.parse(line) as { error?: string; message?: { content?: string } };
@@ -43,7 +69,8 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
           if (tok) { out += tok; onToken?.(tok); }
         };
         for (;;) {
-          const { value, done } = await reader.read();
+          const { value, done } = await raceTimeout(reader.read(), gotFirstChunk ? timeoutMs : firstTokenTimeoutMs);
+          gotFirstChunk = true;
           if (done) break;
           buf += value;
           let nl: number;
@@ -57,6 +84,8 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
       } catch (e) {
         if (e instanceof OllamaError) throw e;
         throw new OllamaError(`Ollama request failed: ${(e as Error).message}`);
+      } finally {
+        clearTimer();
       }
     },
 
