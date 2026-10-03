@@ -71,6 +71,9 @@ const opCount = (t: string) => events.filter((e) => e.type === "op_applied" && e
 const sheetChanges = opTypes.reduce((n, t) => n + opCount(t), 0);
 console.log(`sheet changes: ${opTypes.map((t) => `${t} ${opCount(t)}`).join(", ")}`);
 if (sheetChanges === 0) console.log("WARNING: the DM made no sheet changes");
+const npcUpdates = opCount("npc") + opCount("npc_gone");
+console.log(`npc updates: ${npcUpdates}`);
+if (npcUpdates === 0) console.log("WARNING: the DM never updated the Nearby list");
 for (const e of events) if (e.type === "op_rejected") console.log(`  rejected: ${JSON.stringify(e.op)} (${e.reason})`);
 for (const c of store.getCharacters(campaign.id)) console.log(`${c.name}: HP ${c.hp}/${c.maxHp}, items: ${c.items.map((i) => i.name).join(", ")}`);
 store.close();

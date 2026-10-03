@@ -31,6 +31,8 @@ A tabletop adventure for your home network. You and your party say what your her
 - **Go ahead without me** / **Don't wait for …** keeps the game moving.
 - **Try again** appears if the DM gets stuck (e.g. Ollama was closed).
 - **Pack up for the night** (bottom of the lobby) unloads the model to free memory. Ollama also unloads it after `OLLAMA_KEEP_ALIVE` (default 30 minutes) of quiet.
+- **Nearby**: the people in the scene appear above the action box, coloured by attitude (red hostile, amber wary, grey neutral, green friendly) with their condition. Tap one for Attack / Talk to / Watch, which fills in your action so names are never misspelt.
+- **When the whole party falls**, play stops with a choice: **Revive** (everyone wakes at half HP and the Dungeon Master decides how you survived) or **Start a new campaign**.
 
 Saves are automatic: everything lives in the `data/` folder (`game.sqlite`, plus a `cookie-secret` file used to sign login sessions). Back up the whole `data/` folder, not just the database file. Deleting `cookie-secret` or changing `TABLE_PASSWORD` signs every device out — players just re-enter the password, nothing else is lost.
 
