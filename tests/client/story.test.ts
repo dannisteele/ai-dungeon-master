@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+import { buildStory, newItemNames } from "../../src/client/lib/story";
+import type { Character, StoredEvent } from "../../src/shared/types";
+
+const chars = [{ id: 1, name: "Corvin" }, { id: 2, name: "Wren" }] as Character[];
+let n = 0;
+const ev = (round: number, e: object) => ({ id: ++n, campaignId: 1, round, createdAt: "", ...e }) as StoredEvent;
+
+describe("buildStory", () => {
+  it("turns events into readable entries, hiding bookkeeping", () => {
+    const events = [
+      ev(0, { type: "narration", text: "Fog." }),
+      ev(1, { type: "action", characterId: 1, text: "I kick the door" }),
+      ev(1, { type: "skip", characterId: 2, skippedBy: 1 }),
+      ev(1, { type: "check_request", characterId: 1, ability: "STR", dc: 14, reason: "door" }),
+      ev(1, { type: "roll", characterId: 1, ability: "STR", die: 15, dc: 14, modifier: 2, total: 17, success: true, crit: null }),
+      ev(1, { type: "narration", text: "It opens." }),
+      ev(1, { type: "op_applied", op: { op: "set_scene", title: "Hall" } }),
+      ev(1, { type: "stall", phase: "resolving", error: "x" }),
+    ];
+    const story = buildStory(events, chars);
+    expect(story.map((s) => s.kind)).toEqual(["narration", "action", "skip", "roll", "narration"]);
+    expect(story[1]).toMatchObject({ name: "Corvin", text: "I kick the door" });
+    expect(story[2]).toMatchObject({ text: "Corvin went ahead without Wren." });
+    expect(story[3]).toMatchObject({ name: "Corvin" });
+  });
+
+  it("describes a self-skip", () => {
+    const story = buildStory([ev(1, { type: "skip", characterId: 2, skippedBy: 2 })], chars);
+    expect(story[0]).toMatchObject({ text: "Wren holds back this round." });
+  });
+});
+
+describe("newItemNames", () => {
+  it("lists items added to a character in the last resolved round", () => {
+    const events = [
+      ev(1, { type: "op_applied", op: { op: "add_item", character: "Corvin", name: "Old key", description: "", qty: 1 } }),
+      ev(2, { type: "op_applied", op: { op: "add_item", character: "corvin", name: "Silver Locket", description: "", qty: 1 } }),
+      ev(2, { type: "op_applied", op: { op: "add_item", character: "Wren", name: "Bow", description: "", qty: 1 } }),
+    ];
+    expect([...newItemNames(events, "Corvin", 3)]).toEqual(["silver locket"]);
+  });
+});
