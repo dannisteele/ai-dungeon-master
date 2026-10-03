@@ -100,6 +100,10 @@ export function applyOps(characters: Character[], rawOps: unknown[], npcs: Npc[]
       continue;
     }
     if (op.op === "npc") {
+      if (findCharacterByName(chars, op.name)) {
+        result.rejected.push({ op, reason: `"${op.name}" is a hero, not an NPC` });
+        continue;
+      }
       const npc: Npc = { name: op.name, attitude: op.attitude, condition: op.condition };
       const at = result.npcs.findIndex((n) => sameName(n.name, op.name));
       if (at >= 0) result.npcs[at] = npc;

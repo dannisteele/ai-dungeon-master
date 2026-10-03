@@ -90,6 +90,12 @@ describe("applyOps", () => {
 describe("NPC ops", () => {
   const brute = { op: "npc", name: "Scarred Brute", attitude: "hostile", condition: "unhurt" };
 
+  it("rejects an npc op that names a hero", () => {
+    const r = applyOps([hero()], [{ op: "npc", name: "corvin ash", attitude: "friendly", condition: "unhurt" }]);
+    expect(r.rejected).toEqual([{ op: { op: "npc", name: "corvin ash", attitude: "friendly", condition: "unhurt" }, reason: '"corvin ash" is a hero, not an NPC' }]);
+    expect(r.npcs).toEqual([]);
+  });
+
   it("adds NPCs and updates them case-insensitively, keeping the newest spelling", () => {
     const r = applyOps([hero()], [brute, { op: "npc", name: "  scarred BRUTE ", attitude: "hostile", condition: "wounded" }]);
     expect(r.npcs).toEqual([{ name: "scarred BRUTE", attitude: "hostile", condition: "wounded" }]);
