@@ -10,7 +10,17 @@ export function Lobby() {
   const [packNote, setPackNote] = useState<string | null>(null);
   const [packing, setPacking] = useState(false);
 
-  useEffect(() => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); }, []);
+  useEffect(() => {
+    const refetch = () => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); };
+    refetch();
+    const onVisible = () => { if (document.visibilityState === "visible") refetch(); };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   async function packUp() {
     setPacking(true);
