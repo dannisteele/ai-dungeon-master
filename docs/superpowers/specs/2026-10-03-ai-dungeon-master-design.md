@@ -40,7 +40,7 @@ One Node process serves the built React app, a REST API for setup flows, and a W
 - **Validation:** Zod (API input, DM output, state-change ops)
 - **Storage:** SQLite via `better-sqlite3` (runs on Pi/ARM)
 - **Front end:** React + Vite; plain CSS with design tokens (no UI framework)
-- **Dice:** a 3D physics dice library that supports **predetermined results** (candidate: `@3d-dice/dice-box-threejs`; verify in planning). Fallback: CSS-animated d20.
+- **Dice:** a 3D physics dice library that supports **predetermined results** (`@3d-dice/dice-box-threejs`, which supports `1d20@N` predetermined rolls). Fallback: CSS-animated d20.
 - **AI:** Ollama HTTP API, `/api/chat` with JSON-schema `format` and streaming
 - **Tests:** Vitest
 
@@ -52,8 +52,9 @@ One Node process serves the built React app, a REST API for setup flows, and a W
 | `PORT` | `3000` | HTTP port |
 | `HOST` | `0.0.0.0` | Bind address |
 | `OLLAMA_URL` | `http://localhost:11434` | Where the model lives |
-| `OLLAMA_MODEL` | `qwen3:14b` (confirm current best Qwen at setup) | Model name |
+| `OLLAMA_MODEL` | `qwen3.6:27b` (faster fallback: `qwen3.5:9b`) | Model name |
 | `DB_PATH` | `./data/game.sqlite` | Save file |
+| `OLLAMA_KEEP_ALIVE` | `30m` | Sent as `keep_alive` on every model request: how long Ollama keeps the model in memory after the last request |
 
 ## 3. Server modules
 
@@ -159,6 +160,10 @@ Each DM call includes, in order:
 
 A token estimate (chars ÷ 4) keeps the prompt under a configurable budget (default 12k tokens) by dropping the oldest verbatim rounds first.
 
+### Pack up for the night
+
+The lobby has a **Pack up for the night** button. It calls `POST /api/pack-up`, which sends Ollama a request for the model with `keep_alive: 0`, so the model is unloaded from memory immediately. It is refused (409, "The Dungeon Master is mid-sentence…") while any campaign is in an AI phase (`opening`, `adjudicating`, `resolving`). Nothing else changes: the next DM call simply reloads the model (the first reply is slower). If Ollama is unreachable, the button reports that rather than failing silently.
+
 ## 7. Data model (SQLite)
 
 ```
@@ -204,6 +209,7 @@ Background `#1a120c` with radial glow `#3a2516`; text `#ead9b8`; muted `#b89c74`
 - **turns** (unit, fake DM + in-memory store): party collection, self-skip, "don't wait", solo, rolls by owner and by proxy, stall and retry, restart mid-round.
 - **dm** (unit, fake Ollama): schema enforcement, single retry, stall after second failure, streaming narration extraction, prompt contents and budget trimming.
 - **store** (integration, temp SQLite): round transaction atomicity; story rebuilt identically after reopen.
+- **pack up** (unit, fake fetch): sends `keep_alive: 0` for the configured model; refused during an AI phase.
 - **auth** (unit): password, cookie, rate limit, private/public IP classification.
 - **Real-model smoke test** (`npm run smoke`, manual): plays 5 rounds against the configured Ollama model and reports schema-valid rate and any rejected ops.
 
