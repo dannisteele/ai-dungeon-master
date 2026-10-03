@@ -63,6 +63,8 @@ for (const e of events) if (e.type === "narration") console.log(`\n${e.text}`);
 console.log("\n── Report ──");
 console.log(`model: ${config.ollamaModel}`);
 console.log(`narrations: ${count("narration")}, checks: ${count("check_request")}, rolls: ${count("roll")}`);
+const dcs = events.flatMap((e) => (e.type === "check_request" ? [e.dc] : []));
+console.log(`check DCs: ${dcs.join(", ") || "none"}`);
 console.log(`ops applied: ${count("op_applied")}, ops rejected: ${count("op_rejected")}, stalls: ${count("stall")}`);
 const opTypes = ["damage", "add_item", "heal", "remove_item", "adjust_stat", "level_up"] as const;
 const opCount = (t: string) => events.filter((e) => e.type === "op_applied" && e.op.op === t).length;

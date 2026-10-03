@@ -23,7 +23,7 @@ export const lightRules: RulesEngine = {
   name: "light-5e-abilities",
   rulesSummary: [
     "- Six abilities (STR, DEX, CON, INT, WIS, CHA) use D&D 5e scores; modifier = (score - 10) / 2, rounded down.",
-    "- Ability check: d20 + modifier vs a DC (10 easy, 15 moderate, 20 hard, 25 nearly impossible). Natural 20 always succeeds; natural 1 always fails.",
+    "- Ability check: d20 + modifier vs a DC (10 easy, 12-13 typical, 15 hard, 20 very hard, 25 nearly impossible; most checks are 10-15). Natural 20 always succeeds; natural 1 always fails.",
     "- A character at 0 HP is downed and cannot act until healed.",
     "- There are no classes, spells or armour class: describe magic and combat in the story and use damage/heal ops for harm and recovery. Typical damage: 1-4 minor, 5-8 serious, 9-15 deadly.",
   ].join("\n"),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DmContext } from "../../../src/server/dm/context";
-import { adjudicateTask, buildMessages, estimateTokens, partyBlock, resolveTask } from "../../../src/server/dm/prompts";
+import { adjudicateTask, buildMessages, estimateTokens, partyBlock, resolveTask, systemPrompt } from "../../../src/server/dm/prompts";
 import { toFormat, resolveFormatSchema, AdjudicateSchema } from "../../../src/server/dm/schemas";
 import { lightRules } from "../../../src/server/rules/engine";
 import type { Campaign, Character } from "../../../src/shared/types";
@@ -38,6 +38,19 @@ describe("prompts", () => {
     // The format example must use placeholders: smaller models copy concrete example items into the game.
     expect(r).toContain('"name":"<item name>"');
     expect(r).not.toContain("Rusty Key");
+  });
+
+  it("calibrates checks the way 5e tables do: most DCs 10-15, framed on the character's goal", () => {
+    const a = adjudicateTask([{ character: "Corvin", text: "I throw a mug at him" }]);
+    expect(a).toContain("Most checks should be DC 10-15");
+    expect(a).toContain("Use 20 only for feats that would challenge a trained expert");
+    expect(a).toContain("what the character is trying to achieve, not what they are trying to avoid");
+  });
+
+  it("keeps narration faithful to the dice and the sheet", () => {
+    const r = resolveTask({ actions: [{ character: "Corvin", text: "I run" }], skipped: [], rolls: [] });
+    expect(r).toContain("Only call a roll a natural 20 or natural 1 when the dice results above say so.");
+    expect(systemPrompt(lightRules)).toContain("Only remove items when the story takes, uses up, breaks or loses them");
   });
 
   it("buildMessages includes outline, summary and recent rounds", () => {

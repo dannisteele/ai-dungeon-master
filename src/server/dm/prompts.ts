@@ -37,6 +37,7 @@ export function systemPrompt(rules: RulesEngine): string {
     "- When characters find, loot, buy or are given something they could carry (coins, keys, potions, notes, trophies), add_item it. When they use up, give away, throw, break or lose an item, remove_item it. Rest, potions and healing restore HP with heal.",
     "- Use set_scene whenever the party arrives somewhere new.",
     "- Use characters' exact names. Only remove items a character actually has (see the party sheet).",
+    "- Only remove items when the story takes, uses up, breaks or loses them. Downed or dead characters keep their belongings unless someone takes them.",
     "- Keep magic items, adjust_stat and level_up rare; level_up only after a major victory or milestone.",
     "",
     "Always reply with a single JSON object and nothing else.",
@@ -75,7 +76,9 @@ export function adjudicateTask(actions: ActionInput[]): string {
     "",
     "Decide which of these actions are risky or uncertain enough to need an ability check. Ordinary actions need no check.",
     "At most one check per character, and only for characters listed above. Choose the most fitting ability (STR, DEX, CON, INT, WIS, CHA).",
-    "DC guide: 10 easy, 15 moderate, 20 hard, 25 nearly impossible.",
+    "DC guide: 5 very easy, 10 easy, 12-13 typical, 15 hard, 20 very hard, 25 nearly impossible.",
+    "Most checks should be DC 10-15. Use 20 only for feats that would challenge a trained expert, and 25 almost never.",
+    "Frame each check on what the character is trying to achieve, not what they are trying to avoid: a SUCCESS should mean they get what they wanted.",
     'Reply as JSON: {"checks": [{"character": "<name>", "ability": "DEX", "dc": 15, "reason": "<short reason>"}]}. Use an empty list if no checks are needed. Do not narrate yet.',
   ].join("\n");
 }
@@ -93,6 +96,7 @@ export function resolveTask(input: ResolveInput): string {
   lines.push(
     "",
     "Narrate what happens, honouring every result. End by inviting the players to act.",
+    "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, and change of location into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nobody was hurt, healed, or gained or lost anything.',
   );
