@@ -108,6 +108,7 @@ export interface RoundStatus {
 export interface Snapshot {
   campaign: Campaign;
   characters: Character[];
+  npcs: Npc[];
   events: StoredEvent[];
   round: RoundStatus;
   activeIds: number[];

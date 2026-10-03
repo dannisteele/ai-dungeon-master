@@ -124,4 +124,21 @@ describe("store", () => {
       items: [{ name: "Rope", description: "30ft", qty: 1 }],
     })).toThrow(NameTakenError);
   });
+
+  it("saves and replaces a campaign's NPCs", () => {
+    store = createStore(":memory:");
+    const { campaign } = seed(store);
+    expect(store.getNpcs(campaign.id)).toEqual([]);
+    store.saveNpcs(campaign.id, [
+      { name: "Scarred Brute", attitude: "hostile", condition: "unhurt" },
+      { name: "Barkeep", attitude: "neutral", condition: "unhurt" },
+      { name: "scarred brute", attitude: "hostile", condition: "wounded" },
+    ]);
+    expect(store.getNpcs(campaign.id)).toEqual([
+      { name: "scarred brute", attitude: "hostile", condition: "wounded" },
+      { name: "Barkeep", attitude: "neutral", condition: "unhurt" },
+    ]);
+    store.saveNpcs(campaign.id, []);
+    expect(store.getNpcs(campaign.id)).toEqual([]);
+  });
 });

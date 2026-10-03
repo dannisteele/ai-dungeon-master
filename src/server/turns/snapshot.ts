@@ -16,6 +16,7 @@ export function buildSnapshot(store: Store, rules: RulesEngine, campaignId: numb
   return {
     campaign,
     characters,
+    npcs: store.getNpcs(campaignId),
     events: store.getEvents(campaignId, { limit: 300 }),
     round: roundStatus(store.getEvents(campaignId, { fromRound: campaign.roundNumber, toRound: campaign.roundNumber })),
     activeIds: activeCharacters(characters, rules).map((c) => c.id),

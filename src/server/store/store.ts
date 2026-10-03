@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import type {
-  AdventureOutline, AiPhase, Campaign, CampaignSummary, Character, GameEvent, Item, Mode, RoundState, Scores, StoredEvent,
+  AdventureOutline, AiPhase, Campaign, CampaignSummary, Character, GameEvent, Item, Mode, Npc, RoundState, Scores, StoredEvent,
 } from "../../shared/types";
 
 export class NameTakenError extends Error {}
@@ -23,6 +23,8 @@ export interface Store {
   saveCharacter(c: Character): void;
   appendEvent(campaignId: number, round: number, event: GameEvent): StoredEvent;
   getEvents(campaignId: number, query?: EventQuery): StoredEvent[];
+  getNpcs(campaignId: number): Npc[];
+  saveNpcs(campaignId: number, npcs: Npc[]): void;
   transaction<T>(fn: () => T): T;
   close(): void;
 }
@@ -74,6 +76,14 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS ix_events_campaign_round ON events(campaign_id, round_number, id);
+CREATE TABLE IF NOT EXISTS npcs (
+  id INTEGER PRIMARY KEY,
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  attitude TEXT NOT NULL,
+  condition TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_npcs_name ON npcs(campaign_id, lower(name));
 `;
 
 interface CampaignRow {
@@ -211,6 +221,18 @@ export function createStore(path: string): Store {
         ? `SELECT * FROM (${sql} ORDER BY id DESC LIMIT @limit) ORDER BY id`
         : `${sql} ORDER BY id`;
       return db.prepare<[object], EventRow>(sql).all({ campaignId, ...q }).map(toEvent);
+    },
+    getNpcs(campaignId) {
+      return db.prepare<[number], Npc>("SELECT name, attitude, condition FROM npcs WHERE campaign_id = ? ORDER BY id").all(campaignId);
+    },
+    saveNpcs(campaignId, npcs) {
+      const byName = new Map<string, Npc>();
+      for (const n of npcs) byName.set(n.name.trim().toLowerCase(), n);
+      db.transaction(() => {
+        db.prepare("DELETE FROM npcs WHERE campaign_id = ?").run(campaignId);
+        const insert = db.prepare("INSERT INTO npcs (campaign_id, name, attitude, condition) VALUES (?, ?, ?, ?)");
+        for (const n of byName.values()) insert.run(campaignId, n.name, n.attitude, n.condition);
+      })();
     },
     transaction(fn) {
       return db.transaction(fn)();
