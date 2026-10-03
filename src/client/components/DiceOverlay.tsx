@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatModifier } from "../../shared/abilities";
 import type { StoredRoll } from "../../shared/types";
-import { getDiceBox, wait } from "../lib/dice";
+import { DICE_TIMEOUT_MS, getDiceBox, wait, withTimeout } from "../lib/dice";
 
 const D20_SVG = (
   <svg viewBox="0 0 100 100" className="fallback-die" aria-hidden>
@@ -18,13 +18,17 @@ export function DiceOverlay({ roll, name, onDone }: { roll: StoredRoll; name: st
     let cancelled = false;
     let timer: number | undefined;
     const stage = document.getElementById("dice-stage");
+    // The 3D box can only land on a face it actually has: swapDiceFace() silently
+    // no-ops for anything outside 1-20 (or non-integers), which would show a random
+    // face that contradicts the server. Go straight to the fallback for those.
+    const canUse3d = Number.isInteger(roll.die) && roll.die >= 1 && roll.die <= 20;
     (async () => {
-      const box = await getDiceBox();
+      const box = canUse3d ? await getDiceBox() : null;
       if (cancelled) return;
       if (box) {
         stage?.classList.add("active");
         try {
-          await box.roll(`1d20@${roll.die}`);
+          await withTimeout(box.roll(`1d20@${roll.die}`), DICE_TIMEOUT_MS);
         } catch (e) {
           console.warn("Dice roll animation failed:", e);
           setFallback(true);
