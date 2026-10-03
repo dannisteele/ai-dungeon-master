@@ -22,6 +22,19 @@ export function transcriptFromEvents(events: StoredEvent[], characters: Characte
         break;
       }
       case "narration": lines.push(`DM: ${e.text}`); break;
+      case "op_applied": {
+        const op = e.op;
+        switch (op.op) {
+          case "damage": lines.push(`[Sheet] ${op.character} takes ${op.amount} damage`); break;
+          case "heal": lines.push(`[Sheet] ${op.character} heals ${op.amount}`); break;
+          case "add_item": lines.push(`[Sheet] ${op.character} gains ${op.name}${op.qty > 1 ? ` ×${op.qty}` : ""}`); break;
+          case "remove_item": lines.push(`[Sheet] ${op.character} loses ${op.name}`); break;
+          case "adjust_stat": lines.push(`[Sheet] ${op.character} ${op.stat} ${op.delta > 0 ? "+1" : "-1"}`); break;
+          case "level_up": lines.push(`[Sheet] ${op.character} reaches a new level`); break;
+          case "set_scene": lines.push(`[Scene] ${op.title}`); break;
+        }
+        break;
+      }
       default: continue;
     }
     rounds.set(e.round, lines);

@@ -29,6 +29,35 @@ describe("transcripts", () => {
     ]);
   });
 
+  it("renders op_applied events as sheet/scene lines", () => {
+    const store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "party", setting: "S", pitch: "", outline: null });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "damage", character: "Corvin", amount: 4 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "heal", character: "Corvin", amount: 2 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "add_item", character: "Corvin", name: "Rusty Key", description: "", qty: 1 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "add_item", character: "Corvin", name: "Torch", description: "", qty: 3 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "remove_item", character: "Corvin", name: "Torch", qty: 1 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "adjust_stat", character: "Corvin", stat: "STR", delta: 1 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "adjust_stat", character: "Corvin", stat: "STR", delta: -1 } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "level_up", character: "Corvin" } });
+    store.appendEvent(c.id, 1, { type: "op_applied", op: { op: "set_scene", title: "The Old Gate" } });
+
+    const t = transcriptFromEvents(store.getEvents(c.id), store.getCharacters(c.id));
+    expect(t).toEqual([
+      { round: 1, lines: [
+        "[Sheet] Corvin takes 4 damage",
+        "[Sheet] Corvin heals 2",
+        "[Sheet] Corvin gains Rusty Key",
+        "[Sheet] Corvin gains Torch ×3",
+        "[Sheet] Corvin loses Torch",
+        "[Sheet] Corvin STR +1",
+        "[Sheet] Corvin STR -1",
+        "[Sheet] Corvin reaches a new level",
+        "[Scene] The Old Gate",
+      ] },
+    ]);
+  });
+
   it("buildContext includes only completed rounds within the window", () => {
     const store = createStore(":memory:");
     const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });

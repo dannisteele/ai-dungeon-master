@@ -29,11 +29,15 @@ export function systemPrompt(rules: RulesEngine): string {
     "Rules:",
     rules.rulesSummary,
     "",
-    "Changing character sheets:",
-    '- You cannot edit sheets directly. List every change in "changes" using only these ops:',
+    "Character sheets (the app's record is the truth):",
+    '- You cannot edit sheets directly. Every change to HP or belongings that happens in your narration MUST also appear in "changes", using only these ops:',
     rules.opsGuide,
+    "- If it isn't in changes, it didn't happen: a wound narrated without a damage op is lost, and an item picked up without add_item never reaches the pack.",
+    "- Danger is real. When an enemy attacks, a trap springs or a risky check fails, someone usually gets hurt: narrate the hit and add a damage op (1-4 minor, 5-8 serious, 9-15 deadly). A natural 1 in a dangerous moment always costs HP.",
+    "- When characters find, loot, buy or are given something they could carry (coins, keys, potions, notes, trophies), add_item it. When they use up, give away, throw, break or lose an item, remove_item it. Rest, potions and healing restore HP with heal.",
+    "- Use set_scene whenever the party arrives somewhere new.",
     "- Use characters' exact names. Only remove items a character actually has (see the party sheet).",
-    "- Award items and level_up sparingly; level_up only after a major victory or milestone.",
+    "- Keep magic items, adjust_stat and level_up rare; level_up only after a major victory or milestone.",
     "",
     "Always reply with a single JSON object and nothing else.",
   ].join("\n");
@@ -89,7 +93,8 @@ export function resolveTask(input: ResolveInput): string {
   lines.push(
     "",
     "Narrate what happens, honouring every result. End by inviting the players to act.",
-    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}. Use an empty changes list if nothing on the sheets changes.',
+    'Then check your narration line by line and put every wound, healing, item gained or lost, and change of location into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
+    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"add_item","character":"<name>","name":"Rusty Key","description":"Taken from the cultist","qty":1}]. Leave changes empty only if nobody was hurt, healed, or gained or lost anything.',
   );
   return lines.join("\n");
 }
