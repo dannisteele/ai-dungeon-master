@@ -103,8 +103,9 @@ export function resolveTask(input: ResolveInput): string {
     "",
     "Narrate what happens, honouring every result. End by inviting the players to act.",
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
-    'Then check your narration line by line and put every wound, healing, item gained or lost, and change of location into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
-    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nobody was hurt, healed, or gained or lost anything.',
+    'Then check your narration line by line and put every wound, healing, item gained or lost, change of location, and every person or group in the scene who appears, is hurt, changes attitude or leaves into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
+    "npc ops are only for non-player characters, never the heroes. Anyone present whom you name and who is not listed under Nearby must be added with an npc op before you can update them; only npc_gone someone who is listed under Nearby.",
+    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"npc","name":"<npc name>","attitude":"hostile","condition":"wounded"},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nothing changed for the heroes or the people nearby.',
   );
   return lines.join("\n");
 }
@@ -112,7 +113,7 @@ export function resolveTask(input: ResolveInput): string {
 export function openingTask(): string {
   return [
     "Begin the adventure. Introduce the party in the opening scene in 2-4 short paragraphs and end with a clear prompt for them to act.",
-    "Include a set_scene op naming the opening location, and an npc op for each notable character or group present. Do not add items: the characters already have their starting kits.",
+    "Include a set_scene op naming the opening location, and an npc op for each notable non-player character or group present (never the heroes). Do not add items: the characters already have their starting kits.",
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}.',
   ].join("\n");
 }
@@ -121,7 +122,7 @@ export function reviveTask(): string {
   return [
     "The whole party has fallen. Narrate, in 2-3 short paragraphs, how they survive against the odds: they might be captured, rescued by someone unexpected, or wake somewhere strange.",
     "Keep consequences: enemies who beat them may still be around, and things may have been taken from them (remove_item those).",
-    "Do not add heal ops: the app restores everyone to half health. You may use set_scene, npc and npc_gone. End by inviting the players to act.",
+    "Do not add heal ops: the app restores everyone to half health. If they wake somewhere new, put set_scene first, then add an npc op for anyone present. End by inviting the players to act.",
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}.',
   ].join("\n");
 }

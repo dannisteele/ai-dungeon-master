@@ -38,6 +38,8 @@ describe("prompts", () => {
     // The format example must use placeholders: smaller models copy concrete example items into the game.
     expect(r).toContain('"name":"<item name>"');
     expect(r).not.toContain("Rusty Key");
+    expect(r).toContain("never the heroes");
+    expect(r).toContain('"op":"npc","name":"<npc name>"');
   });
 
   it("calibrates checks the way 5e tables do: most DCs 10-15, framed on the character's goal", () => {
@@ -93,7 +95,7 @@ describe("prompts", () => {
     const [system, user] = buildMessages(ctx, lightRules, "TASK", 12000);
     expect(user.content).toContain("- Jailer: wary, unhurt");
     expect(system.content).toContain("Keep the Nearby list true");
-    expect(openingTask()).toContain("npc op for each notable character or group");
+    expect(openingTask()).toContain("npc op for each notable non-player character or group present (never the heroes)");
   });
 
   it("asks for a revive twist without HP changes", () => {
