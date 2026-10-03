@@ -67,6 +67,13 @@ describe("NPC story chips", () => {
   });
 });
 
+describe("party fallen", () => {
+  it("adds a fallen entry to the story", () => {
+    const story = buildStory([ev(9, { type: "party_fallen" })], chars);
+    expect(story).toEqual([expect.objectContaining({ kind: "fallen" })]);
+  });
+});
+
 describe("newItemNames", () => {
   it("lists items added to a character in the last resolved round", () => {
     const events = [

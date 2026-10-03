@@ -99,6 +99,33 @@ label.stack > span { color: var(--muted); font-size: .9rem; }
 .pointbuy .stepper { justify-content: center; gap: .25rem; margin-top: .3rem; }
 .pointbuy .stepper .btn { padding: .1em .7em; }
 
+/* Nearby NPCs */
+.nearby { display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; min-width: 0; position: relative; }
+.nearby-label { font-family: var(--font-display); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); flex: none; }
+.nearby-chips { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: 2px; min-width: 0; }
+.npc-wrap { flex: none; }
+.npc-chip { display: flex; flex-direction: column; align-items: flex-start; background: var(--panel); border: 1px solid var(--border-soft); border-left: 3px solid var(--muted); border-radius: 8px; padding: .25em .7em; color: var(--text); font: inherit; line-height: 1.2; cursor: pointer; }
+.npc-chip:disabled { cursor: default; }
+.npc-chip .npc-name { font-size: .9rem; white-space: nowrap; }
+.npc-chip .npc-condition { font-size: .7rem; color: var(--muted); }
+.npc-hostile { border-left-color: var(--danger); }
+.npc-hostile .npc-name { color: var(--danger); }
+.npc-wary { border-left-color: var(--gold); }
+.npc-neutral { border-left-color: var(--muted); }
+.npc-friendly { border-left-color: var(--success); }
+.npc-down { opacity: .5; }
+.npc-down .npc-name { text-decoration: line-through; }
+/* The menu is a child of .nearby, not of the overflow-x:auto .nearby-chips strip: that
+   container forces overflow-y to auto too, which would clip an absolutely positioned
+   menu vertically. Its left offset is computed in JS from the chip's offsetLeft minus
+   the strip's scrollLeft. */
+.npc-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30; display: flex; flex-direction: column; min-width: 9rem; background: #1f150d; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden; }
+.npc-menu button { background: none; border: 0; color: var(--text); text-align: left; padding: .5em .9em; font: inherit; cursor: pointer; }
+.npc-menu button:hover, .npc-menu button:focus-visible { background: var(--panel); outline: none; }
+/* The party falls */
+.fallen-title { font-family: var(--font-display); color: var(--danger); letter-spacing: .06em; margin: 0; font-size: 1.1rem; }
+.story-fallen { display: inline-block; font-family: var(--font-display); color: var(--danger); border: 1px solid var(--danger); border-radius: 6px; padding: .3em .8em; margin: 0 0 1em; }
+
 @media (max-width: 899px) {
   .play { grid-template-columns: 1fr; }
   .sheet { position: fixed; inset: 0 0 0 auto; width: min(88vw, 360px); transform: translateX(100%); transition: transform .25s ease; z-index: 20; background: #1f150d; }

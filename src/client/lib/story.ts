@@ -5,7 +5,8 @@ export type StoryEntry =
   | { kind: "action"; id: number; name: string; text: string }
   | { kind: "skip"; id: number; text: string }
   | { kind: "roll"; id: number; name: string; roll: StoredRoll }
-  | { kind: "sheet"; id: number; text: string };
+  | { kind: "sheet"; id: number; text: string }
+  | { kind: "fallen"; id: number };
 
 export const nameOf = (chars: Character[], id: number) => chars.find((c) => c.id === id)?.name ?? "Someone";
 export const isRoll = (e: StoredEvent): e is StoredRoll => e.type === "roll";
@@ -35,6 +36,7 @@ export function buildStory(events: StoredEvent[], chars: Character[]): StoryEntr
         });
         break;
       case "roll": out.push({ kind: "roll", id: e.id, name: nameOf(chars, e.characterId), roll: e as StoredRoll }); break;
+      case "party_fallen": out.push({ kind: "fallen", id: e.id }); break;
       case "op_applied": {
         const op = e.op;
         if (op.op === "set_scene") break;

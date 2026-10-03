@@ -26,7 +26,7 @@ export function useGameSocket(campaignId: number) {
           case "snapshot": {
             setSnapshot(msg.snapshot);
             const s = msg.snapshot.campaign.roundState;
-            if (s !== "opening" && s !== "resolving") setStreaming("");
+            if (s !== "opening" && s !== "resolving" && s !== "reviving") setStreaming("");
             const prev = prevRef.current;
             if (prev && (prev.roundState !== s || prev.roundNumber !== msg.snapshot.campaign.roundNumber)) setError(null);
             prevRef.current = { roundState: s, roundNumber: msg.snapshot.campaign.roundNumber };
