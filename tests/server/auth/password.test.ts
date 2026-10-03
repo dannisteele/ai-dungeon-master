@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cookieSecret, loadOrCreateServerSecret, LoginRateLimiter, passwordMatches } from "../../../src/server/auth/password";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("password", () => {
@@ -40,6 +40,14 @@ describe("loadOrCreateServerSecret", () => {
     loadOrCreateServerSecret(path);
     const stat = statSync(path);
     expect(stat.mode & 0o777).toBe(0o600);
+  });
+  it("treats an existing but empty or whitespace-only file as missing and regenerates", () => {
+    const tmpdir = mkdtempSync("/tmp/auth-test-");
+    const path = join(tmpdir, "secret");
+    writeFileSync(path, "   \n", { mode: 0o600 });
+    const secret = loadOrCreateServerSecret(path);
+    expect(secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(readFileSync(path, "utf-8").trim()).toBe(secret);
   });
 });
 

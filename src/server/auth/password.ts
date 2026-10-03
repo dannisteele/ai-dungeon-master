@@ -10,13 +10,13 @@ export function passwordMatches(input: string, expected: string): boolean {
 
 export function loadOrCreateServerSecret(path: string): string {
   try {
-    return readFileSync(path, "utf-8").trim();
-  } catch {
-    const secret = randomBytes(32).toString("hex");
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, secret, { mode: 0o600 });
-    return secret;
-  }
+    const existing = readFileSync(path, "utf-8").trim();
+    if (existing) return existing;
+  } catch { /* file missing: fall through to create one */ }
+  const secret = randomBytes(32).toString("hex");
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, secret, { mode: 0o600 });
+  return secret;
 }
 
 /** Changing TABLE_PASSWORD or the server secret changes the cookie secret, which signs every device out. */
