@@ -64,6 +64,7 @@ label.stack > span { color: var(--muted); font-size: .9rem; }
 .action-line b { color: var(--gold); font-style: normal; }
 .roll-chip { display: inline-flex; gap: .5em; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: .3em .8em; margin: 0 0 1em; box-shadow: 0 0 18px rgba(224, 168, 74, .2); font-size: .95rem; }
 .roll-chip .die-glyph { color: var(--gold); font-size: 1.2em; }
+.sheet-chip { display:inline-block; font-size:.85rem; color:var(--muted); border:1px solid var(--border-soft); border-radius:99px; padding:.1em .7em; margin:0 .4em .8em 0; }
 .caret::after { content: "▍"; animation: blink 1s steps(2) infinite; color: var(--gold); }
 @keyframes blink { 50% { opacity: 0; } }
 .action-bar { border-top: 1px solid var(--border-soft); padding: 1rem 1.5rem calc(1rem + env(safe-area-inset-bottom)); background: rgba(18, 12, 7, .65); }

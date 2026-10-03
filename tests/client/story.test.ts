@@ -29,6 +29,29 @@ describe("buildStory", () => {
     const story = buildStory([ev(1, { type: "skip", characterId: 2, skippedBy: 2 })], chars);
     expect(story[0]).toMatchObject({ text: "Wren holds back this round." });
   });
+
+  it("shows applied sheet changes as chips, except set_scene", () => {
+    const withLevels = [{ id: 1, name: "Corvin", level: 2 }, { id: 2, name: "Wren", level: 2 }] as Character[];
+    const events = [
+      ev(1, { type: "op_applied", op: { op: "damage", character: "Corvin", amount: 4 } }),
+      ev(1, { type: "op_applied", op: { op: "heal", character: "Wren", amount: 2 } }),
+      ev(1, { type: "op_applied", op: { op: "add_item", character: "Wren", name: "Rusty Key", description: "", qty: 1 } }),
+      ev(1, { type: "op_applied", op: { op: "remove_item", character: "Corvin", name: "Torch", qty: 1 } }),
+      ev(1, { type: "op_applied", op: { op: "adjust_stat", character: "Corvin", stat: "STR", delta: 1 } }),
+      ev(1, { type: "op_applied", op: { op: "level_up", character: "Wren" } }),
+      ev(1, { type: "op_applied", op: { op: "set_scene", title: "Hall" } }),
+    ];
+    const story = buildStory(events, withLevels);
+    expect(story.map((s) => s.kind)).toEqual(["sheet", "sheet", "sheet", "sheet", "sheet", "sheet"]);
+    expect(story.map((s) => (s as { text: string }).text)).toEqual([
+      "Corvin −4 HP",
+      "Wren +2 HP",
+      "Wren gains Rusty Key",
+      "Corvin loses Torch",
+      "Corvin STR +1",
+      "Wren reaches level 2",
+    ]);
+  });
 });
 
 describe("newItemNames", () => {

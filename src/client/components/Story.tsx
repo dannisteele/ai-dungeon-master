@@ -9,6 +9,7 @@ export function Story({ entries, streaming }: { entries: StoryEntry[]; streaming
           case "narration": return <p key={e.id} className="narration">{e.text}</p>;
           case "action": return <p key={e.id} className="action-line"><b>{e.name}</b> {e.text}</p>;
           case "skip": return <p key={e.id} className="action-line">{e.text}</p>;
+          case "sheet": return <span key={e.id} className="sheet-chip">{e.text}</span>;
           case "roll": {
             const r = e.roll;
             return (

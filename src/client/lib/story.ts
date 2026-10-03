@@ -4,13 +4,24 @@ export type StoryEntry =
   | { kind: "narration"; id: number; text: string }
   | { kind: "action"; id: number; name: string; text: string }
   | { kind: "skip"; id: number; text: string }
-  | { kind: "roll"; id: number; name: string; roll: StoredRoll };
+  | { kind: "roll"; id: number; name: string; roll: StoredRoll }
+  | { kind: "sheet"; id: number; text: string };
 
 export const nameOf = (chars: Character[], id: number) => chars.find((c) => c.id === id)?.name ?? "Someone";
 export const isRoll = (e: StoredEvent): e is StoredRoll => e.type === "roll";
 
 export function buildStory(events: StoredEvent[], chars: Character[]): StoryEntry[] {
   const out: StoryEntry[] = [];
+  const levelUpsSeen = new Map<string, number>();
+  for (const e of events) {
+    if (e.type === "op_applied" && e.op.op === "level_up") {
+      const key = e.op.character.trim().toLowerCase();
+      levelUpsSeen.set(key, (levelUpsSeen.get(key) ?? 0) + 1);
+    }
+  }
+  const runningLevel = new Map<string, number>();
+  for (const c of chars) runningLevel.set(c.name.trim().toLowerCase(), c.level - (levelUpsSeen.get(c.name.trim().toLowerCase()) ?? 0));
+
   for (const e of events) {
     switch (e.type) {
       case "narration": out.push({ kind: "narration", id: e.id, text: e.text }); break;
@@ -24,6 +35,27 @@ export function buildStory(events: StoredEvent[], chars: Character[]): StoryEntr
         });
         break;
       case "roll": out.push({ kind: "roll", id: e.id, name: nameOf(chars, e.characterId), roll: e as StoredRoll }); break;
+      case "op_applied": {
+        const op = e.op;
+        if (op.op === "set_scene") break;
+        let text: string;
+        switch (op.op) {
+          case "damage": text = `${op.character} −${op.amount} HP`; break;
+          case "heal": text = `${op.character} +${op.amount} HP`; break;
+          case "add_item": text = `${op.character} gains ${op.name}${op.qty > 1 ? ` ×${op.qty}` : ""}`; break;
+          case "remove_item": text = `${op.character} loses ${op.name}`; break;
+          case "adjust_stat": text = `${op.character} ${op.stat} ${op.delta > 0 ? "+1" : "-1"}`; break;
+          case "level_up": {
+            const key = op.character.trim().toLowerCase();
+            const next = (runningLevel.get(key) ?? 0) + 1;
+            runningLevel.set(key, next);
+            text = `${op.character} reaches level ${next}`;
+            break;
+          }
+        }
+        out.push({ kind: "sheet", id: e.id, text });
+        break;
+      }
     }
   }
   return out;
