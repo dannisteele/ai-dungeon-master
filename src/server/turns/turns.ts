@@ -258,7 +258,7 @@ export class TurnService {
       const blocked = mode === "revive" ? out.changes.filter(isHpOp) : [];
       const changes = mode === "revive" ? out.changes.filter((o) => !isHpOp(o)) : out.changes;
       const result = rules.applyOps(store.getCharacters(id), changes, store.getNpcs(id));
-      if (mode === "revive") for (const ch of result.characters) ch.hp = rules.reviveHp(ch);
+      if (mode === "revive") for (const ch of result.characters) ch.hp = Math.max(ch.hp, rules.reviveHp(ch));
       for (const ch of result.characters) store.saveCharacter(ch);
       store.saveNpcs(id, result.npcs);
       store.appendEvent(id, c.roundNumber, { type: "narration", text: out.narration });

@@ -37,6 +37,7 @@ export function transcriptFromEvents(events: StoredEvent[], characters: Characte
         }
         break;
       }
+      case "party_fallen": lines.push("[The party fell]"); break;
       default: continue;
     }
     rounds.set(e.round, lines);

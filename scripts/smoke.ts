@@ -40,6 +40,10 @@ const timed = async (label: string, fn: () => Promise<void>) => {
 
 await timed("opening", () => turns.begin(campaign.id));
 for (const [i, [a, b]] of script.entries()) {
+  if (store.getCampaign(campaign.id)!.roundState === "fallen") {
+    console.log(`party fell before round ${i + 1}`);
+    break;
+  }
   console.log(`round ${i + 1}`);
   await turns.submitAction(campaign.id, heroes[0].id, a);
   await timed("actions", () => turns.submitAction(campaign.id, heroes[1].id, b));

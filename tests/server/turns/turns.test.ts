@@ -346,6 +346,22 @@ describe("TurnService", () => {
     await expect(turns.revive(id)).rejects.toThrow("Nobody needs reviving.");
   });
 
+  it("revive never lowers HP: a hero created fresh after the fall keeps full HP", async () => {
+    const { store, dm, turns, id, chars } = await begun();
+    dm.nextChanges = [{ op: "damage", character: "Corvin", amount: 50 }, { op: "damage", character: "Wren", amount: 50 }];
+    await turns.submitAction(id, chars[0].id, "a");
+    await turns.submitAction(id, chars[1].id, "b");
+    expect(store.getCampaign(id)!.roundState).toBe("fallen");
+    const fresh = store.createCharacter({
+      campaignId: id, name: "Talia", concept: "hero", hp: 20, maxHp: 20, items: [],
+      scores: { STR: 15, DEX: 10, CON: 10, INT: 8, WIS: 12, CHA: 8 },
+    });
+    await turns.revive(id);
+    expect(store.getCharacter(fresh.id)!.hp).toBe(20);
+    expect(store.getCharacter(chars[0].id)!.hp).toBe(10);
+    expect(store.getCharacter(chars[1].id)!.hp).toBe(10);
+  });
+
   it("a failed revive stalls and can be retried", async () => {
     const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
     dm.nextChanges = [{ op: "damage", character: "Corvin", amount: 50 }];

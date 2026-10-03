@@ -15,11 +15,11 @@ export function NearbyStrip({ npcs, canAct, onPick }: { npcs: Npc[]; canAct: boo
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(null); };
+    const onDown = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(null); };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
   useEffect(() => { if (!canAct) setOpen(null); }, [canAct]);

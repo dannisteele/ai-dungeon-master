@@ -70,6 +70,16 @@ describe("transcripts", () => {
     expect(ctx.npcs).toEqual([{ name: "Rat", attitude: "hostile", condition: "unhurt" }]);
   });
 
+  it("renders the party's defeat so the DM remembers it", () => {
+    const store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "party", setting: "S", pitch: "", outline: null });
+    store.appendEvent(c.id, 1, { type: "narration", text: "They are overwhelmed." });
+    store.appendEvent(c.id, 1, { type: "party_fallen" });
+    expect(transcriptFromEvents(store.getEvents(c.id), [])).toEqual([
+      { round: 1, lines: ["DM: They are overwhelmed.", "[The party fell]"] },
+    ]);
+  });
+
   it("renders NPC ops as [NPC] lines", () => {
     const store = createStore(":memory:");
     const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });

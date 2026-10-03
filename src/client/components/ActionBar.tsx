@@ -11,6 +11,8 @@ export function ActionBar({ snapshot, me, campaignId, error, send }: Props) {
   const { campaign, characters, round, activeIds } = snapshot;
   const [text, setText] = useState("");
   useEffect(() => setText(""), [campaign.roundNumber]);
+  const [reviveSent, setReviveSent] = useState(false);
+  useEffect(() => setReviveSent(false), [campaign.roundState]);
 
   const name = (id: number) => nameOf(characters, id);
   const responded = (id: number) => round.actions.some((a) => a.characterId === id) || round.skippedIds.includes(id);
@@ -24,7 +26,7 @@ export function ActionBar({ snapshot, me, campaignId, error, send }: Props) {
     <div className="stack">
       <p className="fallen-title">The party has fallen</p>
       <div className="row">
-        <button className="btn btn-primary" onClick={() => send({ t: "revive" })}>Revive</button>
+        <button className="btn btn-primary" disabled={reviveSent} onClick={() => { setReviveSent(true); send({ t: "revive" }); }}>Revive</button>
         <a className="btn btn-ghost" href="#/new">Start a new campaign</a>
       </div>
     </div>
