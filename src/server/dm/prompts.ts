@@ -94,7 +94,7 @@ export function resolveTask(input: ResolveInput): string {
     "",
     "Narrate what happens, honouring every result. End by inviting the players to act.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, and change of location into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
-    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"add_item","character":"<name>","name":"Rusty Key","description":"Taken from the cultist","qty":1}]. Leave changes empty only if nobody was hurt, healed, or gained or lost anything.',
+    'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nobody was hurt, healed, or gained or lost anything.',
   );
   return lines.join("\n");
 }

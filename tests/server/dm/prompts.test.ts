@@ -35,6 +35,9 @@ describe("prompts", () => {
     });
     expect(r).toContain("Wren");
     expect(r).toContain("Corvin DEX check: 3 +0 = 3 vs DC 12 (slick wall): FAILURE");
+    // The format example must use placeholders: smaller models copy concrete example items into the game.
+    expect(r).toContain('"name":"<item name>"');
+    expect(r).not.toContain("Rusty Key");
   });
 
   it("buildMessages includes outline, summary and recent rounds", () => {
