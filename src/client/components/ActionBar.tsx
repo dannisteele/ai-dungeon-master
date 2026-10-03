@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Character, ClientMsg, Snapshot } from "../../shared/types";
+import { canSkipAlone } from "../lib/round";
 import { nameOf } from "../lib/story";
 
 interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void }
@@ -63,8 +64,8 @@ export function ActionBar({ snapshot, me, campaignId, error, send }: Props) {
         break;
       case "collecting": {
         const meActive = activeIds.includes(me.id);
-        const waitingOn = activeIds.filter((id) => id !== me.id && !responded(id));
-        const canGoAhead = activeIds.some((id) => id !== me.id && !round.skippedIds.includes(id));
+        const waitingOn = activeIds.filter((id) => id !== me.id && !responded(id) && canSkipAlone(activeIds, round.skippedIds, id));
+        const canGoAhead = canSkipAlone(activeIds, round.skippedIds, me.id);
         if (!meActive) {
           body = <div className="stack">{readyLine}<p className="muted" style={{ margin: 0 }}>{me.name} is down and can't act until healed.</p></div>;
         } else if (!responded(me.id)) {

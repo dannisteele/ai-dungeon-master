@@ -14,6 +14,7 @@ export function Play({ campaignId }: { campaignId: number }) {
   const [diceQueue, setDiceQueue] = useState<StoredRoll[]>([]);
   const lastSeenRoll = useRef<number | null>(null);
   const storyRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
   const myId = getMyCharacter(campaignId);
 
   // Animate rolls that arrive while we're watching (not ones already in the log when we joined).
@@ -28,9 +29,17 @@ export function Play({ campaignId }: { campaignId: number }) {
     }
   }, [snapshot]);
 
+  // Keep pinned to the bottom only while the reader was already there; don't yank them back
+  // down mid-reread just because narration is still streaming in (dozens of chunks per reply).
+  const handleStoryScroll = () => {
+    const el = storyRef.current;
+    if (!el) return;
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   useEffect(() => {
     const el = storyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && atBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [snapshot?.events.length, streaming]);
 
   if (!snapshot) return <main className="page muted">{error ?? "Pulling up a chair…"}</main>;
@@ -51,7 +60,7 @@ export function Play({ campaignId }: { campaignId: number }) {
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
           <button className="btn btn-ghost sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
-        <div className="story" ref={storyRef}>
+        <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
           <div className="story-inner">
             <Story entries={buildStory(snapshot.events, snapshot.characters)} streaming={streaming} />
           </div>
