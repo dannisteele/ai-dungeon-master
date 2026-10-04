@@ -5,9 +5,9 @@ import { appendAction } from "../lib/npcs";
 import { nameOf } from "../lib/story";
 import { NearbyStrip } from "./NearbyStrip";
 
-interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void }
+interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void; rollingIds?: Set<number> }
 
-export function ActionBar({ snapshot, me, campaignId, error, send }: Props) {
+export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds }: Props) {
   const { campaign, characters, round, activeIds } = snapshot;
   const [text, setText] = useState("");
   useEffect(() => setText(""), [campaign.roundNumber]);
@@ -69,7 +69,9 @@ export function ActionBar({ snapshot, me, campaignId, error, send }: Props) {
                 <span style={{ flex: 1 }}>
                   <b className="gold">{name(ch.characterId)}</b>: {ch.ability} check, DC {ch.dc} <span className="muted">({ch.reason})</span>
                 </span>
-                {ch.roll
+                {ch.roll && rollingIds?.has(ch.characterId)
+                  ? <span className="muted">Rolling…</span>
+                  : ch.roll
                   ? <span className={ch.roll.success ? "ok" : "fail"}>{ch.roll.total} {ch.roll.success ? "✓" : "✗"}</span>
                   : ch.characterId === me.id
                     ? <button className="btn btn-primary roll-btn" onClick={() => send({ t: "roll", characterId: ch.characterId })}>Roll d20</button>

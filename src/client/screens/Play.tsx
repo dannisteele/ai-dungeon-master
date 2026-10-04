@@ -5,7 +5,7 @@ import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
 import { Story } from "../components/Story";
 import { getMyCharacter } from "../lib/storage";
-import { buildStory, isRoll, nameOf } from "../lib/story";
+import { buildStory, eventsBeforeRoll, isRoll, nameOf } from "../lib/story";
 import { useGameSocket } from "../lib/useGameSocket";
 
 export function Play({ campaignId }: { campaignId: number }) {
@@ -46,6 +46,9 @@ export function Play({ campaignId }: { campaignId: number }) {
 
   const me = snapshot.characters.find((c) => c.id === myId) ?? null;
   const current = diceQueue[0];
+  // While a die is tumbling, keep its result (and anything the DM wrote after it) off screen.
+  const visibleEvents = eventsBeforeRoll(snapshot.events, current?.id);
+  const rollingIds = new Set(diceQueue.map((r) => r.characterId));
 
   return (
     <div className="play">
@@ -62,10 +65,10 @@ export function Play({ campaignId }: { campaignId: number }) {
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
           <div className="story-inner">
-            <Story entries={buildStory(snapshot.events, snapshot.characters)} streaming={streaming} />
+            <Story entries={buildStory(visibleEvents, snapshot.characters)} streaming={current ? "" : streaming} />
           </div>
         </div>
-        <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} />
+        <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} rollingIds={rollingIds} />
       </div>
       <CharacterSheet snapshot={snapshot} me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />
       {current && (

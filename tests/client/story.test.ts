@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStory, newItemNames } from "../../src/client/lib/story";
+import { buildStory, eventsBeforeRoll, newItemNames } from "../../src/client/lib/story";
 import type { Character, StoredEvent } from "../../src/shared/types";
 
 const chars = [{ id: 1, name: "Corvin" }, { id: 2, name: "Wren" }] as Character[];
@@ -82,5 +82,18 @@ describe("newItemNames", () => {
       ev(2, { type: "op_applied", op: { op: "add_item", character: "Wren", name: "Bow", description: "", qty: 1 } }),
     ];
     expect([...newItemNames(events, "Corvin", 3)]).toEqual(["silver locket"]);
+  });
+});
+
+describe("dice suspense", () => {
+  it("hides the roll and everything after it until the die has landed", () => {
+    const events = [
+      ev(1, { type: "action", characterId: 1, text: "I leap" }),
+      ev(1, { type: "roll", characterId: 1, ability: "DEX", die: 15, dc: 12, modifier: 0, total: 15, success: true, crit: null }),
+      ev(1, { type: "narration", text: "She clears the gap." }),
+    ];
+    const roll = events[1];
+    expect(eventsBeforeRoll(events, roll.id).map((e) => e.type)).toEqual(["action"]);
+    expect(eventsBeforeRoll(events, undefined)).toBe(events);
   });
 });

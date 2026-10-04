@@ -76,3 +76,12 @@ export function newItemNames(events: StoredEvent[], characterName: string, round
   }
   return names;
 }
+
+/**
+ * The events a player may see while a die is still tumbling: everything logged before that roll.
+ * The roll itself, and anything the DM wrote after it, stays hidden until the animation finishes,
+ * so the result isn't spoiled. Returns the same array when nothing is hidden.
+ */
+export function eventsBeforeRoll(events: StoredEvent[], hiddenRollId: number | undefined): StoredEvent[] {
+  return hiddenRollId === undefined ? events : events.filter((e) => e.id < hiddenRollId);
+}
