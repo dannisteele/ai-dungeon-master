@@ -98,6 +98,12 @@ describe("prompts", () => {
     expect(openingTask()).toContain("npc op for each notable non-player character or group present (never the heroes)");
   });
 
+  it("tells the DM that harm to NPCs is a condition change, not a damage op", () => {
+    // A real session had damage ops aimed at "Servant 1" and "Servant 2", rejected as unknown characters.
+    const r = resolveTask({ actions: [], skipped: [], rolls: [] });
+    expect(r).toContain("damage and heal ops are only for the heroes; when an NPC is hurt or healed, update their condition with an npc op instead.");
+  });
+
   it("asks for a revive twist without HP changes", () => {
     const t = reviveTask();
     expect(t).toContain("The whole party has fallen.");

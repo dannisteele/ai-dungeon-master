@@ -104,6 +104,7 @@ export function resolveTask(input: ResolveInput): string {
     "Narrate what happens, honouring every result. End by inviting the players to act.",
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, change of location, and every person or group in the scene who appears, is hurt, changes attitude or leaves into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
+    "damage and heal ops are only for the heroes; when an NPC is hurt or healed, update their condition with an npc op instead.",
     "npc ops are only for non-player characters, never the heroes. Anyone present whom you name and who is not listed under Nearby must be added with an npc op before you can update them; only npc_gone someone who is listed under Nearby.",
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"npc","name":"<npc name>","attitude":"hostile","condition":"wounded"},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nothing changed for the heroes or the people nearby.',
   );
