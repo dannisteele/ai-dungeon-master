@@ -58,6 +58,29 @@ describe("DungeonMaster", () => {
     expect(chat.requests[1].messages.at(-1)!.content).toMatch(/not valid/);
   });
 
+  it("retries when the changes were written into the narration instead of the changes list", async () => {
+    // Seen from qwen3.5:9b in a real session: ops leaked into the story text, changes left empty.
+    const leaked = JSON.stringify({
+      narration: 'A shade blocks her path.\n\n[set_scene,title":"Lord Vane\'s Grand Hall"],[npc,name":"Smoking Shade","attitude":"hostile","condition":"unhurt"]',
+      changes: [],
+    });
+    const fixed = JSON.stringify({ narration: "A shade blocks her path.", changes: [{ op: "set_scene", title: "Lord Vane's Grand Hall" }] });
+    const { dm, chat } = make([leaked, fixed]);
+    const { r, handlers } = recorder();
+    const out = await dm.resolve(ctx, { actions: [], skipped: [], rolls: [] }, handlers);
+    expect(out).toEqual({ narration: "A shade blocks her path.", changes: [{ op: "set_scene", title: "Lord Vane's Grand Hall" }] });
+    expect(r.restarts).toBe(1);
+    expect(chat.requests[1].messages.at(-1)!.content).toMatch(/changes/);
+  });
+
+  it("does not mistake ordinary story words for leaked changes", async () => {
+    const story = "The guard's condition worsens; his attitude sours. She heals the scene of the crime with a damage-control smile.";
+    const { dm, chat } = make([JSON.stringify({ narration: story, changes: [] })]);
+    const { handlers } = recorder();
+    expect((await dm.resolve(ctx, { actions: [], skipped: [], rolls: [] }, handlers)).narration).toBe(story);
+    expect(chat.requests).toHaveLength(1);
+  });
+
   it("retries on invalid JSON", async () => {
     const { dm } = make(["not json at all", '{"checks":[]}']);
     expect(await dm.adjudicate(ctx, [])).toEqual([]);
