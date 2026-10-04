@@ -24,7 +24,8 @@ const nameOf = (chars: Character[], id: number) => chars.find((c) => c.id === id
 export class TurnService {
   private locks = new Map<number, Promise<unknown>>();
   private background = new Set<Promise<void>>();
-  private summarising = new Set<number>();
+  /** In-flight summary per campaign (background or recap), so the two never overlap. */
+  private summarising = new Map<number, Promise<void>>();
 
   constructor(private deps: TurnDeps) {}
 
@@ -103,6 +104,26 @@ export class TurnService {
       if (c.roundState !== "fallen") throw new GameError("Nobody needs reviving.");
       await this.runRevive(id);
     });
+  }
+
+  /**
+   * The story so far, for the recap panel. Returns the stored summary when it already covers every
+   * finished round; otherwise has the DM summarise just the new rounds. Never takes the campaign
+   * lock (play carries on), but waits for any in-flight summary rather than overlapping it.
+   */
+  async recap(id: number): Promise<{ summary: string; throughRound: number }> {
+    if (this.campaign(id).roundNumber - 1 < 1) return { summary: "", throughRound: 0 };
+    for (let running = this.summarising.get(id); running; running = this.summarising.get(id)) {
+      await running.catch(() => undefined);
+    }
+    const through = this.campaign(id).roundNumber - 1;
+    const lastThrough = this.lastSummaryThrough(id);
+    if (lastThrough >= through) return { summary: this.campaign(id).summary, throughRound: lastThrough };
+    const p = this.summariseRange(id, lastThrough + 1, through);
+    this.trackSummary(id, p);
+    await p;
+    this.broadcastSnapshot(id);
+    return { summary: this.campaign(id).summary, throughRound: through };
   }
 
   /** Call once at startup: a phase that was running when the server stopped can never finish. */
@@ -293,22 +314,26 @@ export class TurnService {
     if (through - lastThrough >= SUMMARY_EVERY) this.spawnSummary(id, lastThrough + 1, through);
   }
 
-  private spawnSummary(id: number, fromRound: number, throughRound: number): void {
+  /** Summarises rounds fromRound..throughRound into the campaign summary (the DM's long-term memory). */
+  private async summariseRange(id: number, fromRound: number, throughRound: number): Promise<void> {
     const { store, dm } = this.deps;
-    this.summarising.add(id);
-    const p = (async () => {
-      try {
-        const c = this.campaign(id);
-        const events = store.getEvents(id, { fromRound, toRound: throughRound });
-        const text = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)));
-        store.updateCampaign(id, { summary: text });
-        store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text, throughRound });
-      } catch (e) {
-        console.warn(`[campaign ${id}] summary failed (will retry after the next round):`, (e as Error).message);
-      } finally {
-        this.summarising.delete(id);
-      }
-    })();
+    const c = this.campaign(id);
+    const events = store.getEvents(id, { fromRound, toRound: throughRound });
+    const text = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)));
+    store.updateCampaign(id, { summary: text });
+    store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text, throughRound });
+  }
+
+  private trackSummary(id: number, p: Promise<void>): void {
+    this.summarising.set(id, p);
+    void p.catch(() => undefined).finally(() => { if (this.summarising.get(id) === p) this.summarising.delete(id); });
+  }
+
+  private spawnSummary(id: number, fromRound: number, throughRound: number): void {
+    const p = this.summariseRange(id, fromRound, throughRound).catch((e) => {
+      console.warn(`[campaign ${id}] summary failed (will retry after the next round):`, (e as Error).message);
+    });
+    this.trackSummary(id, p);
     this.background.add(p);
     void p.finally(() => this.background.delete(p));
   }

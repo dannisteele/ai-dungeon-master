@@ -109,6 +109,26 @@ describe("API", () => {
     expect(ok.json().character).toMatchObject({ pendingAbilityPoints: 0, scores: { STR: 16 } });
   });
 
+  it("writes a story-so-far recap on request", async () => {
+    const { req } = await start(fakeDm({ summarise: async () => "They wandered in the fog." }));
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "", throughRound: 0 });
+    store.appendEvent(campaign.id, 1, { type: "narration", text: "Fog everywhere." });
+    store.updateCampaign(campaign.id, { roundState: "collecting", roundNumber: 2 });
+    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "They wandered in the fog.", throughRound: 1 });
+    expect((await req("POST", "/api/campaigns/999/recap")).statusCode).toBe(404);
+  });
+
+  it("returns 503 when the DM can't write the recap", async () => {
+    const { req } = await start(fakeDm({ summarise: async () => { throw new DmError("down"); } }));
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    store.appendEvent(campaign.id, 1, { type: "narration", text: "Fog everywhere." });
+    store.updateCampaign(campaign.id, { roundState: "collecting", roundNumber: 2 });
+    const r = await req("POST", `/api/campaigns/${campaign.id}/recap`);
+    expect(r.statusCode).toBe(503);
+    expect(r.json().error).toBe("The Dungeon Master couldn't recall the story just now. Try again.");
+  });
+
   it("packs up the model, but not mid-sentence", async () => {
     const { req } = await start();
     expect((await req("POST", "/api/pack-up")).json()).toEqual({ ok: true });

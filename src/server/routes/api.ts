@@ -110,6 +110,17 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     return { character: result.character };
   });
 
+  app.post<{ Params: { id: string } }>("/api/campaigns/:id/recap", async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!store.getCampaign(id)) return reply.code(404).send({ error: "No such campaign." });
+    try {
+      return await turns.recap(id);
+    } catch (e) {
+      if (e instanceof DmError) return reply.code(503).send({ error: "The Dungeon Master couldn't recall the story just now. Try again." });
+      throw e;
+    }
+  });
+
   app.post("/api/pack-up", async (_req, reply) => {
     const busy = store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
     if (busy) return reply.code(409).send({ error: "The Dungeon Master is mid-sentence. Try again once the story settles." });

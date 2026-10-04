@@ -264,6 +264,51 @@ describe("TurnService", () => {
     expect(store.getCampaign(id)).toMatchObject({ roundState: "stalled", stalledPhase: "resolving" });
   });
 
+  describe("story-so-far recap", () => {
+    it("returns nothing before any round has been played, without asking the DM", async () => {
+      const { dm, turns, id } = await begun("solo", ["Corvin"]);
+      expect(await turns.recap(id)).toEqual({ summary: "", throughRound: 0 });
+      expect(dm.summaries).toBe(0);
+    });
+
+    it("summarises the played rounds, stores it, and reuses it until the story moves on", async () => {
+      const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      for (let i = 0; i < 3; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 3 rounds", throughRound: 3 });
+      expect(store.getCampaign(id)!.summary).toBe("summary of 3 rounds");
+      expect(store.getEvents(id).filter((e) => e.type === "summary")).toEqual([expect.objectContaining({ throughRound: 3 })]);
+
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 3 rounds", throughRound: 3 });
+      expect(dm.summaries).toBe(1);
+
+      await turns.submitAction(id, chars[0].id, "act 3");
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 1 rounds", throughRound: 4 });
+      expect(dm.summaries).toBe(2);
+    });
+
+    it("waits for a background summary instead of running alongside it", async () => {
+      const { dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      let release!: () => void;
+      dm.summariseGate = new Promise((res) => { release = res; });
+      for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+      expect(dm.summaries).toBe(1); // background summary started, stuck on the gate
+      const pending = turns.recap(id);
+      await tick();
+      expect(dm.summaries).toBe(1); // recap is waiting, not overlapping
+      release();
+      expect(await pending).toEqual({ summary: "summary of 10 rounds", throughRound: 10 });
+      expect(dm.summaries).toBe(1);
+    });
+
+    it("passes a DM failure back to the caller and leaves the gap open", async () => {
+      const { dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      await turns.submitAction(id, chars[0].id, "act");
+      dm.summariseFailNext = true;
+      await expect(turns.recap(id)).rejects.toThrow("summary failed");
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 1 rounds", throughRound: 1 });
+    });
+  });
+
   it("summarises every 10 rounds without blocking play", async () => {
     const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
     for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
