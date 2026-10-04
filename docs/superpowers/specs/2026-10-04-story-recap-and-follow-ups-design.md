@@ -63,6 +63,10 @@ Add this to the system prompt's **Storytelling** section, directly after the "Ne
 
 No other change. The existing "end by inviting the players to act" already leaves the reply open for the player.
 
+**Amended after real-model testing:** the same rule is also repeated in `resolveTask` (every round's instructions), because qwen3.5:9b mostly follows the per-round task rather than the system prompt. qwen3.6:27b follows it reliably; the 9b only sometimes.
+
+**Amended after review:** the first summary starts at round 0, so the recap (and the DM's memory) includes the opening scene. On phones the header button is labelled "Recap" to leave room for the scene title.
+
 ## 4. Testing
 
 - **turns:**
