@@ -98,6 +98,12 @@ describe("prompts", () => {
     expect(openingTask()).toContain("npc op for each notable non-player character or group present (never the heroes)");
   });
 
+  it("asks the player what they say instead of inventing their words", () => {
+    expect(systemPrompt(lightRules)).toContain(
+      "- When a player's action is vague about what they say or ask (for example \"I ask some questions\" or \"I chat to her\"), don't invent their words. Have the NPC react in character and end by asking that player what exactly they say or ask.",
+    );
+  });
+
   it("tells the DM that harm to NPCs is a condition change, not a damage op", () => {
     // A real session had damage ops aimed at "Servant 1" and "Servant 2", rejected as unknown characters.
     const r = resolveTask({ actions: [], skipped: [], rolls: [] });

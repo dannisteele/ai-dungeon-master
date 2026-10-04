@@ -21,6 +21,7 @@ export function systemPrompt(rules: RulesEngine): string {
     "- Narrate vividly but concisely: 1-3 short paragraphs per round.",
     "- Give every character who acted a moment in the spotlight.",
     "- Never decide what player characters say, think or choose. Describe the world and how it reacts, then invite the players to act.",
+    "- When a player's action is vague about what they say or ask (for example \"I ask some questions\" or \"I chat to her\"), don't invent their words. Have the NPC react in character and end by asking that player what exactly they say or ask.",
     "- Keep the story moving toward the campaign's goal, with danger, mystery and some humour.",
     "",
     "Fairness:",
