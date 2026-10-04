@@ -3,6 +3,7 @@ import type { StoredRoll } from "../../shared/types";
 import { ActionBar } from "../components/ActionBar";
 import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
+import { RecapPanel } from "../components/RecapPanel";
 import { Story } from "../components/Story";
 import { getMyCharacter } from "../lib/storage";
 import { buildStory, eventsBeforeRoll, isRoll, nameOf } from "../lib/story";
@@ -11,6 +12,7 @@ import { useGameSocket } from "../lib/useGameSocket";
 export function Play({ campaignId }: { campaignId: number }) {
   const { snapshot, streaming, error, connected, send } = useGameSocket(campaignId);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
   const [diceQueue, setDiceQueue] = useState<StoredRoll[]>([]);
   const lastSeenRoll = useRef<number | null>(null);
   const storyRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function Play({ campaignId }: { campaignId: number }) {
             </p>
           </div>
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
+          <button className="btn btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => setRecapOpen(true)}>Story so far</button>
           <button className="btn btn-ghost sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
@@ -71,6 +74,7 @@ export function Play({ campaignId }: { campaignId: number }) {
         <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} rollingIds={rollingIds} />
       </div>
       <CharacterSheet snapshot={snapshot} me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      {recapOpen && <RecapPanel campaignId={campaignId} onClose={() => setRecapOpen(false)} />}
       {current && (
         <DiceOverlay key={current.id} roll={current} name={nameOf(snapshot.characters, current.characterId)}
           onDone={() => setDiceQueue((q) => q.slice(1))} />

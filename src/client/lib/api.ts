@@ -34,4 +34,5 @@ export const api = {
   spendPoint: (characterId: number, ability: Ability) =>
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
+  recap: (campaignId: number) => request<{ summary: string; throughRound: number }>("POST", `/api/campaigns/${campaignId}/recap`),
 };
