@@ -98,6 +98,13 @@ describe("prompts", () => {
     expect(openingTask()).toContain("npc op for each notable non-player character or group present (never the heroes)");
   });
 
+  it("repeats the follow-up rule in every round's task, where small models actually look", () => {
+    const r = resolveTask({ actions: [{ character: "Edith", text: "I ask the groundskeeper some questions" }], skipped: [], rolls: [] });
+    expect(r).toContain(
+      "If an action says a hero asks, talks or chats without giving their actual words, do not write those words for them: have the other person respond and end your narration with that person asking the hero, in quotes, what they want to say or know.",
+    );
+  });
+
   it("asks the player what they say instead of inventing their words", () => {
     expect(systemPrompt(lightRules)).toContain(
       "- When a player's action is vague about what they say or ask (for example \"I ask some questions\" or \"I chat to her\"), don't invent their words. Have the NPC react in character and end by asking that player what exactly they say or ask.",

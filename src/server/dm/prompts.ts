@@ -103,6 +103,7 @@ export function resolveTask(input: ResolveInput): string {
   lines.push(
     "",
     "Narrate what happens, honouring every result. End by inviting the players to act.",
+    "If an action says a hero asks, talks or chats without giving their actual words, do not write those words for them: have the other person respond and end your narration with that person asking the hero, in quotes, what they want to say or know.",
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, change of location, and every person or group in the scene who appears, is hurt, changes attitude or leaves into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
     "damage and heal ops are only for the heroes; when an NPC is hurt or healed, update their condition with an npc op instead.",
