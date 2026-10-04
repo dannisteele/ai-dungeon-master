@@ -44,11 +44,11 @@ export function RecapPanel({ campaignId, onClose }: { campaignId: number; onClos
             ? (
               <>
                 {recapParagraphs(state.summary).map((p, i) => <p key={i} className="narration">{p}</p>)}
-                <p className="muted small">Up to round {state.throughRound}</p>
               </>
             )
             : <p className="muted">Nothing has happened yet. Play a round first.</p>)}
         </div>
+        {state.kind === "ready" && state.summary.trim() && <p className="muted small" style={{ margin: 0 }}>Up to round {state.throughRound}</p>}
       </section>
     </div>
   );

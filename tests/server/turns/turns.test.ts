@@ -274,11 +274,11 @@ describe("TurnService", () => {
     it("summarises the played rounds, stores it, and reuses it until the story moves on", async () => {
       const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
       for (let i = 0; i < 3; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 3 rounds", throughRound: 3 });
-      expect(store.getCampaign(id)!.summary).toBe("summary of 3 rounds");
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3 });
+      expect(store.getCampaign(id)!.summary).toBe("summary of 4 rounds");
       expect(store.getEvents(id).filter((e) => e.type === "summary")).toEqual([expect.objectContaining({ throughRound: 3 })]);
 
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 3 rounds", throughRound: 3 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3 });
       expect(dm.summaries).toBe(1);
 
       await turns.submitAction(id, chars[0].id, "act 3");
@@ -296,7 +296,7 @@ describe("TurnService", () => {
       await tick();
       expect(dm.summaries).toBe(1); // recap is waiting, not overlapping
       release();
-      expect(await pending).toEqual({ summary: "summary of 10 rounds", throughRound: 10 });
+      expect(await pending).toEqual({ summary: "summary of 11 rounds", throughRound: 10 });
       expect(dm.summaries).toBe(1);
     });
 
@@ -305,7 +305,7 @@ describe("TurnService", () => {
       await turns.submitAction(id, chars[0].id, "act");
       dm.summariseFailNext = true;
       await expect(turns.recap(id)).rejects.toThrow("summary failed");
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 1 rounds", throughRound: 1 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 2 rounds", throughRound: 1 });
     });
   });
 
@@ -314,7 +314,7 @@ describe("TurnService", () => {
     for (let i = 0; i < 10; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
     await turns.settle();
     expect(dm.summaries).toBe(1);
-    expect(store.getCampaign(id)!.summary).toBe("summary of 10 rounds");
+    expect(store.getCampaign(id)!.summary).toBe("summary of 11 rounds");
   });
 
   it("retries a failed summary on the next round, covering the whole gap", async () => {
@@ -329,9 +329,9 @@ describe("TurnService", () => {
     await turns.submitAction(id, chars[0].id, "act 10");
     await turns.settle();
     expect(dm.summaries).toBe(2);
-    expect(store.getCampaign(id)!.summary).toBe("summary of 11 rounds");
+    expect(store.getCampaign(id)!.summary).toBe("summary of 12 rounds");
     expect(store.getEvents(id).filter((e) => e.type === "summary")).toEqual([
-      expect.objectContaining({ text: "summary of 11 rounds", throughRound: 11 }),
+      expect.objectContaining({ text: "summary of 12 rounds", throughRound: 11 }),
     ]);
   });
 
@@ -347,7 +347,7 @@ describe("TurnService", () => {
     release();
     await turns.settle();
     expect(dm.summaries).toBe(1);
-    expect(store.getCampaign(id)!.summary).toBe("summary of 10 rounds");
+    expect(store.getCampaign(id)!.summary).toBe("summary of 11 rounds");
   });
 
   it("broadcasts snapshots with round status", async () => {

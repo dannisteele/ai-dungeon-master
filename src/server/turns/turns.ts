@@ -318,7 +318,9 @@ export class TurnService {
   private async summariseRange(id: number, fromRound: number, throughRound: number): Promise<void> {
     const { store, dm } = this.deps;
     const c = this.campaign(id);
-    const events = store.getEvents(id, { fromRound, toRound: throughRound });
+    // The opening narration is stored as round 0, so the first summary must start there, or the
+    // story so far (and the DM's long-term memory) loses the premise: where the party began and why.
+    const events = store.getEvents(id, { fromRound: fromRound <= 1 ? 0 : fromRound, toRound: throughRound });
     const text = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)));
     store.updateCampaign(id, { summary: text });
     store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text, throughRound });

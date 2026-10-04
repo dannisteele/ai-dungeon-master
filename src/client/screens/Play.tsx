@@ -56,15 +56,15 @@ export function Play({ campaignId }: { campaignId: number }) {
     <div className="play">
       <div className="play-main">
         <header className="play-header">
-          <a href="#/" className="muted">← Tavern</a>
+          <a href="#/" className="muted header-back">← Tavern</a>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p className="eyebrow" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {snapshot.campaign.sceneTitle || snapshot.campaign.title}
             </p>
           </div>
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
-          <button className="btn btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => setRecapOpen(true)}>Story so far</button>
-          <button className="btn btn-ghost sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
+          <button className="btn btn-ghost header-btn" aria-label="Story so far" onClick={() => setRecapOpen(true)}><span className="label-long">Story so far</span><span className="label-short">Recap</span></button>
+          <button className="btn btn-ghost header-btn sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
           <div className="story-inner">
