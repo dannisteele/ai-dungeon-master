@@ -26,6 +26,7 @@ const fakeDm = (over: Partial<DungeonMaster> = {}): DungeonMaster => ({
 let app: FastifyInstance;
 let store: Store;
 let unloads = 0;
+let loaded = false;
 afterEach(async () => {
   await app?.close();
   store?.close();
@@ -39,6 +40,7 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
     chat: async () => "", unload,
     getModel: () => model, setModel: (m) => { model = m; },
     installedModels: async () => ["qwen3.5:9b", "qwen3.6:27b", "llama3:8b"],
+    isLoaded: async () => loaded,
   };
   ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest } }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
@@ -169,6 +171,14 @@ describe("API", () => {
     expect(busy.statusCode).toBe(409);
     expect(busy.json().error).toMatch(/mid-sentence/);
     expect(unloads).toBe(1);
+  });
+
+  it("says whether the model has finished loading", async () => {
+    const { req } = await start();
+    loaded = false;
+    expect((await req("GET", "/api/dm-status")).json()).toEqual({ loaded: false });
+    loaded = true;
+    expect((await req("GET", "/api/dm-status")).json()).toEqual({ loaded: true });
   });
 
   it("lists installed models with friendly names", async () => {

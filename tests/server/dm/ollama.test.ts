@@ -116,6 +116,17 @@ describe("ollama client", () => {
     expect(calls.at(-1)!.body.model).toBe("b");
   });
 
+  it("knows when the current model is loaded", async () => {
+    const fetchImpl = (async (url: string) => {
+      expect(url).toBe("http://x/api/ps");
+      return new Response(JSON.stringify({ models: [{ name: "qwen3.5:9b" }] }));
+    }) as typeof fetch;
+    const client = createOllamaClient({ url: "http://x", model: "qwen3.5:9b", keepAlive: "30m", fetchImpl });
+    expect(await client.isLoaded()).toBe(true);
+    client.setModel("qwen3.6:27b");
+    expect(await client.isLoaded()).toBe(false);
+  });
+
   it("unload reports an unreachable Ollama", async () => {
     const fetchImpl = (async () => { throw new TypeError("fetch failed"); }) as typeof fetch;
     await expect(createOllamaClient({ url: "http://x", model: "m", keepAlive: "30m", fetchImpl }).unload()).rejects.toThrow(OllamaError);

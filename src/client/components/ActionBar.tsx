@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { Character, ClientMsg, Snapshot } from "../../shared/types";
+import { AI_PHASES, type Character, type ClientMsg, type Snapshot } from "../../shared/types";
 import { canSkipAlone } from "../lib/round";
 import { appendAction } from "../lib/npcs";
 import { nameOf } from "../lib/story";
+import { useDmWaking } from "../lib/waking";
 import { NearbyStrip } from "./NearbyStrip";
 
 interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void; rollingIds?: Set<number> }
@@ -12,6 +13,7 @@ export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds }:
   const [text, setText] = useState("");
   useEffect(() => setText(""), [campaign.roundNumber]);
   const [reviveSent, setReviveSent] = useState(false);
+  const waking = useDmWaking((AI_PHASES as readonly string[]).includes(campaign.roundState));
   useEffect(() => setReviveSent(false), [campaign.roundState]);
 
   const name = (id: number) => nameOf(characters, id);
@@ -51,7 +53,9 @@ export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds }:
       case "adjudicating":
       case "resolving":
       case "reviving":
-        body = <p className="thinking">The Dungeon Master is weaving the tale…</p>;
+        body = waking
+          ? <p className="thinking">The Dungeon Master is waking up… The first turn after a break can take a minute or two.</p>
+          : <p className="thinking">The Dungeon Master is weaving the tale…</p>;
         break;
       case "stalled":
         body = (
