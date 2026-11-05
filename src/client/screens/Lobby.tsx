@@ -13,13 +13,15 @@ export function Lobby() {
   const [packNote, setPackNote] = useState<string | null>(null);
   const [packing, setPacking] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: number; title: string } | null>(null);
   const [version, setVersion] = useState<{ version: string; latest: string | null; updateAvailable: boolean } | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
 
   useEffect(() => { api.version().then(setVersion).catch(() => {}); }, []);
 
+  const refetch = () => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); };
+
   useEffect(() => {
-    const refetch = () => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); };
     refetch();
     const onVisible = () => { if (document.visibilityState === "visible") refetch(); };
     window.addEventListener("focus", refetch);
@@ -29,6 +31,29 @@ export function Lobby() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  async function saveRename() {
+    if (!renaming) return;
+    setError(null);
+    try {
+      await api.renameCampaign(renaming.id, renaming.title);
+      setRenaming(null);
+      refetch();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function remove(c: CampaignSummary) {
+    if (!window.confirm(`Delete "${c.title}"? Its heroes and story go with it, and this can't be undone.`)) return;
+    setError(null);
+    try {
+      await api.deleteCampaign(c.id);
+      refetch();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   async function packUp() {
     setPacking(true);
@@ -60,7 +85,17 @@ export function Lobby() {
           return (
             <article key={c.id} className="panel stack">
               <div>
-                <h3>{c.title}</h3>
+                {renaming?.id === c.id
+                  ? (
+                    <form className="row" onSubmit={(e) => { e.preventDefault(); saveRename(); }} style={{ marginBottom: ".4em" }}>
+                      <input className="input" style={{ flex: 1, minWidth: 0 }} maxLength={80} value={renaming.title} autoFocus
+                        aria-label="Campaign name"
+                        onChange={(e) => setRenaming({ id: c.id, title: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === "Escape") setRenaming(null); }} />
+                      <button className="btn btn-primary" type="submit">Save</button>
+                    </form>
+                  )
+                  : <h3>{c.title}</h3>}
                 <p className="muted small">{c.mode === "solo" ? "Solo" : "Party"} · {c.sceneTitle || "Not yet begun"}</p>
                 <p className="muted small">{c.characterNames.join(", ") || "No heroes yet"}</p>
               </div>
@@ -69,6 +104,10 @@ export function Lobby() {
                   ? <button className="btn btn-primary" onClick={() => go(`/c/${c.id}`)}>Continue</button>
                   : <button className="btn btn-primary" onClick={() => go(`/c/${c.id}/join`)}>Join</button>}
                 {mine && <button className="btn btn-ghost" onClick={() => go(`/c/${c.id}/join`)}>Switch hero</button>}
+              </div>
+              <div className="row card-tools">
+                <button className="link-btn" onClick={() => setRenaming({ id: c.id, title: c.title })}>Rename</button>
+                <button className="link-btn danger" onClick={() => remove(c)}>Delete</button>
               </div>
             </article>
           );

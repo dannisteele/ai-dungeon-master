@@ -42,6 +42,10 @@ button { font: inherit; cursor: pointer; }
 label.stack > span { color: var(--muted); font-size: .9rem; }
 .field { display: block; }
 .update-note { color: var(--gold); }
+.card-tools { gap: 1rem; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: .85rem; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--text); }
+.link-btn.danger:hover { color: var(--danger); }
 .stack.field > * + * { margin-top: .4rem; }
 
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
