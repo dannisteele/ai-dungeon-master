@@ -22,6 +22,13 @@ function Run($exe) {
   if ($LASTEXITCODE -ne 0) { throw "$exe $($args -join ' ') failed (exit code $LASTEXITCODE)" }
 }
 
+# Run a program and return its output, ignoring its error messages and failure. (Writing
+# 2>$null directly would turn any error message into a crash under ErrorActionPreference Stop.)
+function Quiet($exe) {
+  $ErrorActionPreference = "Continue"
+  & $exe @args 2>$null
+}
+
 # A value from .env, or the fallback.
 function Env-Value($name, $fallback) {
   $file = Join-Path $Root ".env"

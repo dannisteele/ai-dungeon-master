@@ -32,7 +32,7 @@ For someone who'd rather not touch a terminal:
 3. It downloads the Qwen 9B model (about 7 GB), plus Qwen 27B (about 17 GB) if the laptop has 32 GB of memory or more. This is the slow part.
 4. Two shortcuts appear on the desktop:
    - **Dungeon Master** starts the game and opens it in the browser. Leave its window open while playing; close it to stop. The first time, Windows asks whether to allow it on the network: click **Allow** if friends will join from their phones.
-   - **Check for Updates** shows what's new on GitHub and, if you say yes, closes the game, installs the update and starts it again. If an update fails it puts the old version back.
+   - **Check for Updates** lists the [release notes](../../releases) for every version you're missing and, if you say yes, closes the game, copies your saves to `data\backups` (the newest 10 are kept), installs the newest release and starts it again. If an update fails it puts the old version back.
 
 Running the setup again is safe: it skips whatever is already done.
 
