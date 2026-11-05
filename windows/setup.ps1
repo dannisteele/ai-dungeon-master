@@ -110,8 +110,11 @@ try {
 
   # 4. The AI model(s)
   if (-not (Test-Url "http://localhost:11434/api/tags")) {
-    $app = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama app.exe"
-    if (Test-Path $app) { Start-Process $app } else { Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden }
+    # No window: CreateNoWindow means no console for Windows Terminal to show (see common.ps1).
+    $psi = New-Object System.Diagnostics.ProcessStartInfo (Get-Command ollama).Source, "serve"
+    $psi.CreateNoWindow = $true
+    $psi.UseShellExecute = $false
+    [System.Diagnostics.Process]::Start($psi) | Out-Null
     for ($i = 0; $i -lt 30 -and -not (Test-Url "http://localhost:11434/api/tags"); $i++) { Start-Sleep -Seconds 1 }
   }
   Say "Downloading the Dungeon Master's brain (about 7 GB)..."

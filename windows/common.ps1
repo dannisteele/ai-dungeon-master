@@ -48,18 +48,39 @@ function Test-Url($url) {
   return ($LASTEXITCODE -eq 0)
 }
 
-# Start Ollama if it isn't answering yet. Prefer the tray app: a hidden console
-# program can still pop up as a Windows Terminal tab, and closing that stops Ollama.
+# Start Ollama's server with no window at all (CreateNoWindow means no console, so Windows
+# Terminal can't show it as a tab, and closing the game window doesn't stop it). Falls back to
+# the Ollama app, which opens its own window, if the server doesn't come up.
+function Start-OllamaHidden {
+  $exe = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+  if (-not $exe) { $exe = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe" }
+  if (-not (Test-Path $exe)) { return $false }
+  $psi = New-Object System.Diagnostics.ProcessStartInfo $exe, "serve"
+  $psi.CreateNoWindow = $true
+  $psi.UseShellExecute = $false
+  [System.Diagnostics.Process]::Start($psi) | Out-Null
+  return $true
+}
+
+function Wait-Url($url, $seconds) {
+  for ($i = 0; $i -lt $seconds; $i++) {
+    if (Test-Url $url) { return $true }
+    Start-Sleep -Seconds 1
+  }
+  return $false
+}
+
+# Start Ollama if it isn't answering yet.
 function Ensure-Ollama {
   $url = (Env-Value "OLLAMA_URL" "http://localhost:11434").TrimEnd("/")
   if (Test-Url "$url/api/tags") { return }
   if ($url -notmatch "localhost|127\.0\.0\.1") { Fail "Can't reach Ollama at $url. Is that computer switched on?" }
   Say "Waking up Ollama..."
+  if ((Start-OllamaHidden) -and (Wait-Url "$url/api/tags" 20)) { return }
   $app = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama app.exe"
-  if (Test-Path $app) { Start-Process $app } else { Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden }
-  for ($i = 0; $i -lt 30; $i++) {
-    Start-Sleep -Seconds 1
-    if (Test-Url "$url/api/tags") { return }
+  if (Test-Path $app) {
+    Start-Process $app
+    if (Wait-Url "$url/api/tags" 30) { return }
   }
   Fail "Ollama didn't start. Try opening the Ollama app from the Start menu, then run this again."
 }
