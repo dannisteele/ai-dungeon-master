@@ -14,6 +14,7 @@
     "start": "tsx src/server/main.ts --production",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
+    "bench": "tsx scripts/bench.ts",
     "release:dry-run": "tsx scripts/release/run.ts --dry-run"
   },
   "keywords": [],

@@ -9,7 +9,7 @@ import { TurnService } from "../src/server/turns/turns";
 
 try { process.loadEnvFile(); } catch { /* optional */ }
 const config = loadConfig({ TABLE_PASSWORD: "smoke", ...process.env });
-const chat = createOllamaClient({ url: config.ollamaUrl, model: config.ollamaModel, keepAlive: config.ollamaKeepAlive });
+const chat = createOllamaClient({ url: config.ollamaUrl, model: config.ollamaModel, keepAlive: config.ollamaKeepAlive, numCtx: config.ollamaNumCtx });
 const dm = createDungeonMaster({ chat, rules: lightRules, budgetTokens: config.promptBudgetTokens });
 const store = createStore(":memory:");
 const turns = new TurnService({ store, rules: lightRules, dm, hub: { broadcast() {} }, dice: rollD20 });

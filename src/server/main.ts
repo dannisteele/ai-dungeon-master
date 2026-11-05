@@ -16,7 +16,7 @@ const store = createStore(config.dbPath);
 const serverSecret = loadOrCreateServerSecret(join(dirname(config.dbPath), "cookie-secret"));
 // A model picked in the app wins over OLLAMA_MODEL, which is only the starting default.
 const model = store.getSetting(MODEL_SETTING) ?? config.ollamaModel;
-const chat = createOllamaClient({ url: config.ollamaUrl, model, keepAlive: config.ollamaKeepAlive });
+const chat = createOllamaClient({ url: config.ollamaUrl, model, keepAlive: config.ollamaKeepAlive, numCtx: config.ollamaNumCtx });
 const dm = createDungeonMaster({ chat, rules: lightRules, budgetTokens: config.promptBudgetTokens });
 const { app, turns } = await buildApp({ config, store, dm, chat, serverSecret, serveClient: process.env.NODE_ENV === "production" || process.argv.includes("--production") });
 
