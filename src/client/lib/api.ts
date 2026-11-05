@@ -44,6 +44,7 @@ export const api = {
   models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),
   setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
   version: () => request<{ version: string; latest: string | null; updateAvailable: boolean }>("GET", "/api/version"),
+  dmStatus: () => request<{ loaded: boolean }>("GET", "/api/dm-status"),
   feedbackEnabled: () => request<{ enabled: boolean }>("GET", "/api/feedback"),
   sendFeedback: (body: FeedbackRequest) => request<{ url: string }>("POST", "/api/feedback", body),
 };

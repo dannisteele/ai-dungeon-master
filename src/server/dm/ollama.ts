@@ -17,6 +17,8 @@ export interface ChatClient {
   setModel(model: string): void;
   /** Names of the models Ollama has downloaded. */
   installedModels(): Promise<string[]>;
+  /** Whether the current model has finished loading into memory (Ollama lists it only then). */
+  isLoaded(): Promise<boolean>;
 }
 
 export class OllamaError extends Error {}
@@ -101,6 +103,12 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
 
     getModel: () => model,
     setModel(m) { model = m; },
+
+    async isLoaded() {
+      const res = await post("/api/ps", undefined, AbortSignal.timeout(5_000));
+      const data = (await res.json().catch(() => ({}))) as { models?: { name: string }[] };
+      return (data.models ?? []).some((m) => m.name === model);
+    },
 
     async installedModels() {
       const res = await post("/api/tags", undefined, AbortSignal.timeout(15_000));

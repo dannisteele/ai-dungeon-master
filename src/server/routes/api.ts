@@ -195,6 +195,16 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     }
   });
 
+  // Lets the play screen say "waking up" while Ollama loads the model before the first turn.
+  app.get("/api/dm-status", async () => {
+    try {
+      return { loaded: await chat.isLoaded() };
+    } catch (e) {
+      if (e instanceof OllamaError) return { loaded: false };
+      throw e;
+    }
+  });
+
   app.get("/api/models", async (_req, reply) => {
     try {
       const installed = await chat.installedModels();
