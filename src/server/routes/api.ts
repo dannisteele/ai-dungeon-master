@@ -5,6 +5,7 @@ import { campaignInputFrom, PRESETS, settingLabel } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
 import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
+import { isNewer, type UpdateChecker } from "../updates";
 import type { RulesEngine } from "../rules/engine";
 import { NameTakenError, type Store } from "../store/store";
 import { buildSnapshot } from "../turns/snapshot";
@@ -56,11 +57,14 @@ const FEEDBACK_EVENTS = 30;
 export interface ApiDeps {
   store: Store; rules: RulesEngine; dm: DungeonMaster; chat: ChatClient; turns: TurnService; adventures: AdventureOutline[];
   /** Absent when no GitHub token is configured: the feedback button stays hidden. */
-  feedback?: { issues: IssueFiler; appVersion: string };
+  feedback?: { issues: IssueFiler };
+  /** This copy's release, e.g. "v1.4.0" (see src/server/version.ts). */
+  version: string;
+  updates: UpdateChecker;
 }
 
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
-  const { store, rules, dm, chat, turns, adventures, feedback } = deps;
+  const { store, rules, dm, chat, turns, adventures, feedback, version, updates } = deps;
   const bad = (error: z.ZodError) => ({ error: z.prettifyError(error) });
 
   app.get("/api/presets", async () => ({
@@ -159,6 +163,11 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     }
   });
 
+  app.get("/api/version", async () => {
+    const latest = await updates.latest();
+    return { version, latest, updateAvailable: latest !== null && isNewer(latest, version) };
+  });
+
   app.get("/api/feedback", async () => ({ enabled: Boolean(feedback) }));
 
   app.post("/api/feedback", async (req, reply) => {
@@ -169,7 +178,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const campaign = campaignId === undefined ? undefined : store.getCampaign(campaignId);
     const characters = campaign ? store.getCharacters(campaign.id) : [];
     const body = buildIssueBody({
-      kind, details, screen, appVersion: feedback.appVersion, model: chat.getModel(), userAgent: req.headers["user-agent"],
+      kind, details, screen, appVersion: version, model: chat.getModel(), userAgent: req.headers["user-agent"],
       campaign: campaign && { id: campaign.id, title: campaign.title, setting: settingLabel(campaign), sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
       character: characters.find((c) => c.id === characterId),
       characters,

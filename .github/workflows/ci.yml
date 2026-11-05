@@ -40,3 +40,26 @@ jobs:
       - name: Windows scripts (PowerShell 5.1)
         shell: powershell
         run: .github\scripts\windows-check.ps1
+
+  release:
+    # Every push to main that adds a feature or fix becomes a new version: tagged, with a
+    # GitHub release whose notes list the merged PRs. See scripts/release/.
+    name: Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, windows]
+    runs-on: ubuntu-latest
+    concurrency: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/release/run.ts
+        env:
+          GH_TOKEN: ${{ github.token }}

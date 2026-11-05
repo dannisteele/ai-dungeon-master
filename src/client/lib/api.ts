@@ -43,6 +43,7 @@ export const api = {
   recap: (campaignId: number) => request<{ summary: string; throughRound: number }>("POST", `/api/campaigns/${campaignId}/recap`),
   models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),
   setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
+  version: () => request<{ version: string; latest: string | null; updateAvailable: boolean }>("GET", "/api/version"),
   feedbackEnabled: () => request<{ enabled: boolean }>("GET", "/api/feedback"),
   sendFeedback: (body: FeedbackRequest) => request<{ url: string }>("POST", "/api/feedback", body),
 };

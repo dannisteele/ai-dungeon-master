@@ -41,6 +41,7 @@ button { font: inherit; cursor: pointer; }
 .input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(224, 168, 74, .15); }
 label.stack > span { color: var(--muted); font-size: .9rem; }
 .field { display: block; }
+.update-note { color: var(--gold); }
 .stack.field > * + * { margin-top: .4rem; }
 
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
