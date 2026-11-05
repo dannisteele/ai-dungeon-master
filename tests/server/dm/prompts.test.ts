@@ -180,6 +180,15 @@ describe("people cards in the prompt", () => {
     expect(nearbyBlock([person("Bell", { notes: "My aunt." })])).toContain("- Bell: neutral, unhurt. Player's notes: My aunt.");
   });
 
+  it("cuts the DM's description, never the player's notes, to fit a line", () => {
+    const line = nearbyBlock([person("Bell", { about: "a".repeat(300), notes: `${"n".repeat(299)}!` })]).split("\n")[1];
+    expect(line.length).toBeLessThanOrEqual(400);
+    expect(line).toContain(`Player's notes: ${"n".repeat(299)}!`);
+    const met = metBlock([person("Tom", { present: false, about: "b".repeat(300), notes: `${"m".repeat(299)}!` })]).split("\n")[1];
+    expect(met.length).toBeLessThanOrEqual(400);
+    expect(met).toContain(`${"m".repeat(299)}!`);
+  });
+
   it("keeps long cards from crowding out the story", () => {
     const line = nearbyBlock([person("Bell", { notes: "n".repeat(1000) })]).split("\n")[1];
     expect(line.length).toBeLessThanOrEqual(400);

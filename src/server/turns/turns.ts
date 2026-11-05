@@ -141,13 +141,15 @@ export class TurnService {
     if ((AI_PHASES as readonly string[]).includes(c.roundState)) throw new GameError("The Dungeon Master is mid-sentence. Try again once the story settles.");
     if (this.summarising.has(id)) throw new GameError("The story so far is being written up. Try again in a moment.");
     const pinned = text.trim();
-    const throughRound = Math.max(0, c.roundNumber - 1);
+    // -1 before the opening scene: the edit covers nothing the DM has written, so the opening
+    // (round 0) still reaches the DM and the summariser.
+    const editedThrough = c.roundNumber - 1;
     this.deps.store.transaction(() => {
       this.deps.store.updateCampaign(id, { pinnedSummary: pinned, summary: "" });
-      this.deps.store.appendEvent(id, c.roundNumber, { type: "summary", text: pinned, throughRound, edited: true });
+      this.deps.store.appendEvent(id, c.roundNumber, { type: "summary", text: pinned, throughRound: editedThrough, edited: true });
     });
     this.broadcastSnapshot(id);
-    return { summary: pinned, throughRound, editedThrough: throughRound };
+    return { summary: pinned, throughRound: Math.max(0, editedThrough), editedThrough };
   }
 
   /** Call once at startup: a phase that was running when the server stopped can never finish. */
@@ -347,7 +349,10 @@ export class TurnService {
     const c = this.campaign(id);
     // The opening narration is stored as round 0, so the first summary must start there, or the
     // story so far (and the DM's long-term memory) loses the premise: where the party began and why.
-    const events = store.getEvents(id, { fromRound: fromRound <= 1 ? 0 : fromRound, toRound: throughRound });
+    // Include the opening (round 0) in the first summary, unless the players' edit replaced it.
+    const edited = lastEditedThrough(store.getEvents(id));
+    const includeOpening = fromRound <= 1 && (edited === null || edited < 0);
+    const events = store.getEvents(id, { fromRound: includeOpening ? 0 : Math.max(1, fromRound), toRound: throughRound });
     // Refresh the cards of everyone the DM touched in these rounds (their current card goes in).
     const named = new Set(events.flatMap((e) => (e.type === "op_applied" && e.op.op === "npc" ? [e.op.name.trim().toLowerCase()] : [])));
     const people = store.getPeople(id).filter((p) => named.has(p.name.toLowerCase())).map((p) => ({ name: p.name, about: p.about }));
