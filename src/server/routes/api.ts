@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ABILITIES, AI_PHASES, type AdventureOutline } from "../../shared/types";
-import { campaignInputFrom, PRESETS } from "../campaigns/presets";
+import { campaignInputFrom, PRESETS, settingLabel } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
 import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
@@ -170,7 +170,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const characters = campaign ? store.getCharacters(campaign.id) : [];
     const body = buildIssueBody({
       kind, details, screen, appVersion: feedback.appVersion, model: chat.getModel(), userAgent: req.headers["user-agent"],
-      campaign: campaign && { id: campaign.id, title: campaign.title, sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
+      campaign: campaign && { id: campaign.id, title: campaign.title, setting: settingLabel(campaign), sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
       character: characters.find((c) => c.id === characterId),
       characters,
       events: campaign ? store.getEvents(campaign.id, { limit: FEEDBACK_EVENTS }) : [],

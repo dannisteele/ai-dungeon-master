@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { baseScores, formatModifier, maxHpFor, modifier, pointBuyCost, POINT_BUY_BUDGET } from "../../shared/abilities";
 import { ABILITIES, type Ability, type KitItem, type Scores, type Snapshot } from "../../shared/types";
+import { FeedbackPanel } from "../components/FeedbackPanel";
 import { api } from "../lib/api";
+import { useFeedbackEnabled } from "../lib/feedback";
 import { go } from "../lib/router";
 import { setMyCharacter } from "../lib/storage";
 
@@ -14,6 +16,8 @@ export function CreateCharacter({ campaignId }: { campaignId: number }) {
   const [kitBusy, setKitBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackEnabled = useFeedbackEnabled();
 
   useEffect(() => { api.snapshot(campaignId).then((r) => setSnap(r.snapshot)).catch((e) => setError(e.message)); }, [campaignId]);
 
@@ -57,7 +61,10 @@ export function CreateCharacter({ campaignId }: { campaignId: number }) {
 
   return (
     <main className="page stack">
-      <a href="#/">← Back to the tavern</a>
+      <div className="row spread">
+        <a href="#/">← Back to the tavern</a>
+        {feedbackEnabled && <button className="btn btn-ghost" onClick={() => setFeedbackOpen(true)}>Feedback</button>}
+      </div>
       <p className="eyebrow">{snap?.campaign.title ?? "…"}</p>
 
       {snap && snap.characters.length > 0 && (
@@ -114,6 +121,7 @@ export function CreateCharacter({ campaignId }: { campaignId: number }) {
         </section>
       )}
       {!snap && error && <p className="error">{error}</p>}
+      {feedbackOpen && <FeedbackPanel screen="create-character" campaignId={campaignId} onClose={() => setFeedbackOpen(false)} />}
     </main>
   );
 }

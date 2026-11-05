@@ -1,4 +1,4 @@
-import type { AdventureOutline, NewCampaignRequest, Preset } from "../../shared/types";
+import type { AdventureOutline, Campaign, NewCampaignRequest, Preset } from "../../shared/types";
 import type { NewCampaignInput } from "../store/store";
 
 export const PRESETS: Preset[] = [
@@ -32,4 +32,14 @@ export function campaignInputFrom(req: NewCampaignRequest, adventures: Adventure
       return { title: title || a.title, mode: req.mode, setting: a.setting, pitch: a.pitch, outline: a };
     }
   }
+}
+
+/** A short human name for where a campaign came from, e.g. "Sci-fi Derelict". */
+export function settingLabel(c: Pick<Campaign, "setting" | "pitch" | "outline">): string {
+  if (c.outline) return `Prepared adventure: ${c.outline.title}`;
+  const preset = PRESETS.find((p) => p.setting === c.setting);
+  if (preset) return preset.name;
+  const pitch = c.pitch.trim().replace(/\s+/g, " ");
+  if (pitch) return `Own pitch: "${pitch.length > 120 ? `${pitch.slice(0, 120)}…` : pitch}"`;
+  return c.setting;
 }
