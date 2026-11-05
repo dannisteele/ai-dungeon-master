@@ -121,4 +121,19 @@ describe("DungeonMaster", () => {
     expect(out.narration).toBe("You wake in a cell.");
     expect(r.chunks.join("")).toBe("You wake in a cell.");
   });
+
+  it("quotes the DM's last reply back and asks for something new, so a small model can't copy it", async () => {
+    const { dm, chat } = make([JSON.stringify({ narration: "He shrugs.", changes: [] })]);
+    const looped = { ...ctx, recentRounds: [{ round: 5, lines: ["Bill: Why are you here?", "DM: The accusation hangs heavy. 'I'm standing right here!' he says."] }] };
+    await dm.resolve(looped, { actions: [], skipped: [], rolls: [] }, recorder().handlers);
+    expect(chat.requests[0].messages[1].content).toContain(
+      'Your previous reply began: "The accusation hangs heavy." This round\'s reply must say something new: start differently, don\'t reuse its sentences, and move the story forward.',
+    );
+  });
+
+  it("asks for nothing extra when the DM hasn't spoken yet", async () => {
+    const { dm, chat } = make([JSON.stringify({ narration: "It begins.", changes: [] })]);
+    await dm.resolve(ctx, { actions: [], skipped: [], rolls: [] }, recorder().handlers);
+    expect(chat.requests[0].messages[1].content).not.toContain("Your previous reply began");
+  });
 });

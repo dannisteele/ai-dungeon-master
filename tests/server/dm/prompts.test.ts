@@ -249,3 +249,35 @@ describe("the players' own story so far", () => {
     expect(buildMessages(ctx, lightRules, "TASK", 12000)[1].content).toContain("Story so far:\nMine.\n\nSince then:\nAuto.");
   });
 });
+
+describe("keeping the story straight (issue #28)", () => {
+  const input = { actions: [{ character: "Bill", text: "But why are you here?" }], skipped: [], rolls: [] };
+  it("fixes the story when a player points out something that doesn't add up, instead of arguing", () => {
+    expect(systemPrompt(lightRules)).toContain(
+      "- If a player points out something that doesn't make sense (someone who shouldn't be there, a contradiction), the story got it wrong: fix it. Give a sensible, ordinary explanation or quietly correct it (they leave, it was a misunderstanding). Never have characters argue the point or insist.",
+    );
+    expect(resolveTask(input)).toContain(
+      "If a hero questions something that doesn't add up, fix it now: give a clear, sensible answer or correct the story. Never have characters insist or argue about it.",
+    );
+  });
+  it("doesn't bring people in from nowhere", () => {
+    expect(systemPrompt(lightRules)).toContain(
+      "- Never bring someone into a scene without showing how they got there. Someone who refused or left doesn't simply turn up.",
+    );
+  });
+  it("moves the story on instead of repeating itself", () => {
+    expect(systemPrompt(lightRules)).toContain(
+      "- Every round must move the story on. Don't reuse sentences or phrases from your earlier narration; if a question is asked again, answer it differently and concretely.",
+    );
+    expect(resolveTask(input)).toContain("Don't repeat sentences or phrases from your earlier narration.");
+  });
+  it("never asks for a roll to make a decision", () => {
+    expect(adjudicateTask([{ character: "Bill", text: "I decline the shift" }])).toContain(
+      "Decisions and simple choices (deciding, agreeing, declining, sending a message, booking something) never need a check: only actions whose success is genuinely in doubt.",
+    );
+  });
+  it("the summary leaves out anything a player corrected or undid", () => {
+    const text = summaryMessages("", [{ round: 3, lines: ["Bill: there is no crystal"] }])[1]!.content;
+    expect(text).toContain("If a player corrected or undid something (said it didn't happen or isn't possible), leave it out as if it never happened.");
+  });
+});
