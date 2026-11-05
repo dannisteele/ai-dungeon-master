@@ -6,6 +6,8 @@ export interface FeedbackRequest {
   kind: "bug" | "idea"; title: string; details: string; screen: string; campaignId?: number; characterId?: number;
 }
 
+export interface ModelChoice { name: string; label: string; installed: boolean }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -39,6 +41,8 @@ export const api = {
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
   recap: (campaignId: number) => request<{ summary: string; throughRound: number }>("POST", `/api/campaigns/${campaignId}/recap`),
+  models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),
+  setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
   feedbackEnabled: () => request<{ enabled: boolean }>("GET", "/api/feedback"),
   sendFeedback: (body: FeedbackRequest) => request<{ url: string }>("POST", "/api/feedback", body),
 };

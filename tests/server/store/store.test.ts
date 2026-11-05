@@ -141,4 +141,12 @@ describe("store", () => {
     store.saveNpcs(campaign.id, []);
     expect(store.getNpcs(campaign.id)).toEqual([]);
   });
+
+  it("stores and overwrites settings", () => {
+    store = createStore(":memory:");
+    expect(store.getSetting("ollamaModel")).toBeUndefined();
+    store.setSetting("ollamaModel", "a");
+    store.setSetting("ollamaModel", "b");
+    expect(store.getSetting("ollamaModel")).toBe("b");
+  });
 });

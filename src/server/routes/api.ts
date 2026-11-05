@@ -31,6 +31,15 @@ export const NewCharacterSchema = z.object({
 
 const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string().trim().min(1).max(40), concept: z.string().trim().min(1).max(120) });
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
+const ModelSchema = z.object({ model: z.string().min(1) });
+
+/** Friendly names for the models we've tested; anything else shows its Ollama name. */
+const MODEL_LABELS: Record<string, string> = {
+  "qwen3.6:27b": "Qwen 27B (best storytelling, slower)",
+  "qwen3.5:9b": "Qwen 9B (quicker)",
+};
+/** Where the chosen model is remembered between restarts. */
+export const MODEL_SETTING = "ollamaModel";
 
 export const FeedbackSchema = z.object({
   kind: z.enum(["bug", "idea"]),
@@ -47,7 +56,7 @@ const FEEDBACK_EVENTS = 30;
 export interface ApiDeps {
   store: Store; rules: RulesEngine; dm: DungeonMaster; chat: ChatClient; turns: TurnService; adventures: AdventureOutline[];
   /** Absent when no GitHub token is configured: the feedback button stays hidden. */
-  feedback?: { issues: IssueFiler; appVersion: string; model: string };
+  feedback?: { issues: IssueFiler; appVersion: string };
 }
 
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
@@ -136,9 +145,11 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     }
   });
 
+  const dmBusy = () => store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
+  const midSentence = { error: "The Dungeon Master is mid-sentence. Try again once the story settles." };
+
   app.post("/api/pack-up", async (_req, reply) => {
-    const busy = store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
-    if (busy) return reply.code(409).send({ error: "The Dungeon Master is mid-sentence. Try again once the story settles." });
+    if (dmBusy()) return reply.code(409).send(midSentence);
     try {
       await chat.unload();
       return { ok: true };
@@ -158,7 +169,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const campaign = campaignId === undefined ? undefined : store.getCampaign(campaignId);
     const characters = campaign ? store.getCharacters(campaign.id) : [];
     const body = buildIssueBody({
-      kind, details, screen, appVersion: feedback.appVersion, model: feedback.model, userAgent: req.headers["user-agent"],
+      kind, details, screen, appVersion: feedback.appVersion, model: chat.getModel(), userAgent: req.headers["user-agent"],
       campaign: campaign && { id: campaign.id, title: campaign.title, sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
       character: characters.find((c) => c.id === characterId),
       characters,
@@ -173,5 +184,39 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
       req.log.error({ err: e }, "filing feedback failed");
       return reply.code(502).send({ error: "Couldn't send that just now. Check the internet connection and try again." });
     }
+  });
+
+  app.get("/api/models", async (_req, reply) => {
+    try {
+      const installed = await chat.installedModels();
+      const current = chat.getModel();
+      const names = installed.includes(current) ? installed : [current, ...installed];
+      return {
+        current,
+        models: names.map((name) => ({ name, label: MODEL_LABELS[name] ?? name, installed: installed.includes(name) })),
+      };
+    } catch (e) {
+      if (e instanceof OllamaError) return reply.code(503).send({ error: e.message });
+      throw e;
+    }
+  });
+
+  app.post("/api/models", async (req, reply) => {
+    const parsed = ModelSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    const { model } = parsed.data;
+    if (model === chat.getModel()) return { current: model };
+    if (dmBusy()) return reply.code(409).send(midSentence);
+    try {
+      if (!(await chat.installedModels()).includes(model)) return reply.code(400).send({ error: `${model} isn't downloaded. Run: ollama pull ${model}` });
+      // Free the old model's memory; if it wasn't loaded, or Ollama hiccups, switching still works.
+      await chat.unload().catch(() => {});
+    } catch (e) {
+      if (e instanceof OllamaError) return reply.code(503).send({ error: e.message });
+      throw e;
+    }
+    chat.setModel(model);
+    store.setSetting(MODEL_SETTING, model);
+    return { current: model };
   });
 }

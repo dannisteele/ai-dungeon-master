@@ -34,7 +34,12 @@ afterEach(async () => {
 async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }, issues?: IssueFiler) {
   store = createStore(":memory:");
   unloads = 0;
-  const chat: ChatClient = { chat: async () => "", unload };
+  let model = "qwen3.6:27b";
+  const chat: ChatClient = {
+    chat: async () => "", unload,
+    getModel: () => model, setModel: (m) => { model = m; },
+    installedModels: async () => ["qwen3.5:9b", "qwen3.6:27b", "llama3:8b"],
+  };
   ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
@@ -144,6 +149,36 @@ describe("API", () => {
     expect(busy.statusCode).toBe(409);
     expect(busy.json().error).toMatch(/mid-sentence/);
     expect(unloads).toBe(1);
+  });
+
+  it("lists installed models with friendly names", async () => {
+    const { req } = await start();
+    expect((await req("GET", "/api/models")).json()).toEqual({
+      current: "qwen3.6:27b",
+      models: [
+        { name: "qwen3.5:9b", label: "Qwen 9B (quicker)", installed: true },
+        { name: "qwen3.6:27b", label: "Qwen 27B (best storytelling, slower)", installed: true },
+        { name: "llama3:8b", label: "llama3:8b", installed: true },
+      ],
+    });
+  });
+
+  it("switches model, unloading the old one and remembering the choice", async () => {
+    const { req } = await start();
+    expect((await req("POST", "/api/models", { model: "qwen3.5:9b" })).json()).toEqual({ current: "qwen3.5:9b" });
+    expect(unloads).toBe(1);
+    expect(store.getSetting("ollamaModel")).toBe("qwen3.5:9b");
+    expect((await req("GET", "/api/models")).json().current).toBe("qwen3.5:9b");
+    expect((await req("POST", "/api/models", { model: "nope:1b" })).statusCode).toBe(400);
+  });
+
+  it("won't switch model mid-sentence", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "classic-fantasy" } })).json();
+    store.updateCampaign(campaign.id, { roundState: "resolving" });
+    const r = await req("POST", "/api/models", { model: "qwen3.5:9b" });
+    expect(r.statusCode).toBe(409);
+    expect((await req("GET", "/api/models")).json().current).toBe("qwen3.6:27b");
   });
 
   it("hides feedback when no GitHub token is set", async () => {

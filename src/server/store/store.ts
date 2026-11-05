@@ -25,6 +25,9 @@ export interface Store {
   getEvents(campaignId: number, query?: EventQuery): StoredEvent[];
   getNpcs(campaignId: number): Npc[];
   saveNpcs(campaignId: number, npcs: Npc[]): void;
+  /** Small app-wide preferences, e.g. the chosen model. */
+  getSetting(key: string): string | undefined;
+  setSetting(key: string, value: string): void;
   transaction<T>(fn: () => T): T;
   close(): void;
 }
@@ -84,6 +87,10 @@ CREATE TABLE IF NOT EXISTS npcs (
   condition TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_npcs_name ON npcs(campaign_id, lower(name));
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 interface CampaignRow {
@@ -233,6 +240,12 @@ export function createStore(path: string): Store {
         const insert = db.prepare("INSERT INTO npcs (campaign_id, name, attitude, condition) VALUES (?, ?, ?, ?)");
         for (const n of byName.values()) insert.run(campaignId, n.name, n.attitude, n.condition);
       })();
+    },
+    getSetting(key) {
+      return db.prepare<[string], { value: string }>("SELECT value FROM settings WHERE key = ?").get(key)?.value;
+    },
+    setSetting(key, value) {
+      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
     },
     transaction(fn) {
       return db.transaction(fn)();

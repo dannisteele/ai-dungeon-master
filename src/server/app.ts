@@ -49,9 +49,9 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; t
     if (req.headers.upgrade && reply.statusCode !== 101) reply.raw.socket?.destroy();
   });
 
-  const { githubToken, githubRepo, ollamaModel } = deps.config;
+  const { githubToken, githubRepo } = deps.config;
   const issues = deps.issues ?? (githubToken ? createGitHubIssueFiler({ token: githubToken, repo: githubRepo }) : undefined);
-  const feedback = issues && { issues, appVersion: appVersion(), model: ollamaModel };
+  const feedback = issues && { issues, appVersion: appVersion() };
   await registerApi(app, { store: deps.store, rules, dm: deps.dm, chat: deps.chat, turns, adventures: loadAdventures(), feedback });
   await registerWs(app, { store: deps.store, rules, turns, hub });
 

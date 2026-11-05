@@ -101,6 +101,21 @@ describe("ollama client", () => {
     expect(calls).toEqual([{ url: "http://x/api/generate", body: { model: "qwen", keep_alive: 0, stream: false } }]);
   });
 
+  it("switches model for later requests and lists installed models", async () => {
+    const calls: { url: string; body?: any }[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined });
+      if (url.endsWith("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "qwen3.6:27b" }, { name: "qwen3.5:9b" }] }));
+      return new Response(JSON.stringify({ done: true }));
+    }) as typeof fetch;
+    const client = createOllamaClient({ url: "http://x", model: "a", keepAlive: "30m", fetchImpl });
+    expect(await client.installedModels()).toEqual(["qwen3.5:9b", "qwen3.6:27b"]);
+    client.setModel("b");
+    expect(client.getModel()).toBe("b");
+    await client.unload();
+    expect(calls.at(-1)!.body.model).toBe("b");
+  });
+
   it("unload reports an unreachable Ollama", async () => {
     const fetchImpl = (async () => { throw new TypeError("fetch failed"); }) as typeof fetch;
     await expect(createOllamaClient({ url: "http://x", model: "m", keepAlive: "30m", fetchImpl }).unload()).rejects.toThrow(OllamaError);
