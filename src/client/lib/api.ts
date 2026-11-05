@@ -2,6 +2,10 @@ import type {
   AdventureInfo, Campaign, CampaignSummary, Character, KitItem, NewCampaignRequest, NewCharacterRequest, Preset, Snapshot, Ability,
 } from "../../shared/types";
 
+export interface FeedbackRequest {
+  kind: "bug" | "idea"; title: string; details: string; screen: string; campaignId?: number; characterId?: number;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -35,4 +39,6 @@ export const api = {
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
   recap: (campaignId: number) => request<{ summary: string; throughRound: number }>("POST", `/api/campaigns/${campaignId}/recap`),
+  feedbackEnabled: () => request<{ enabled: boolean }>("GET", "/api/feedback"),
+  sendFeedback: (body: FeedbackRequest) => request<{ url: string }>("POST", "/api/feedback", body),
 };

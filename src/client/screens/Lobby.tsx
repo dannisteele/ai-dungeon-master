@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { CampaignSummary } from "../../shared/types";
+import { FeedbackPanel } from "../components/FeedbackPanel";
 import { api } from "../lib/api";
+import { useFeedbackEnabled } from "../lib/feedback";
 import { go } from "../lib/router";
 import { getMyCharacter } from "../lib/storage";
 
@@ -9,6 +11,8 @@ export function Lobby() {
   const [error, setError] = useState<string | null>(null);
   const [packNote, setPackNote] = useState<string | null>(null);
   const [packing, setPacking] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackEnabled = useFeedbackEnabled();
 
   useEffect(() => {
     const refetch = () => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); };
@@ -39,7 +43,10 @@ export function Lobby() {
     <main className="page stack">
       <header className="row spread">
         <div><p className="eyebrow">The Tavern</p><h1>Your campaigns</h1></div>
-        <button className="btn btn-primary" onClick={() => go("/new")}>New campaign</button>
+        <div className="row">
+          {feedbackEnabled && <button className="btn btn-ghost" onClick={() => setFeedbackOpen(true)}>Feedback</button>}
+          <button className="btn btn-primary" onClick={() => go("/new")}>New campaign</button>
+        </div>
       </header>
       {error && <p className="error">{error}</p>}
       {campaigns?.length === 0 && <p className="muted">No tales yet. Start one!</p>}
@@ -67,6 +74,7 @@ export function Lobby() {
         <p className="muted small" style={{ flex: 1, margin: 0 }}>{packNote ?? "Done for the evening? Free up the computer's memory."}</p>
         <button className="btn btn-ghost" onClick={packUp} disabled={packing}>{packing ? "Packing up…" : "🕯 Pack up for the night"}</button>
       </footer>
+      {feedbackOpen && <FeedbackPanel screen="lobby" onClose={() => setFeedbackOpen(false)} />}
     </main>
   );
 }

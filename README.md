@@ -36,6 +36,17 @@ A tabletop adventure for your home network. You and your party say what your her
 
 Saves are automatic: everything lives in the `data/` folder (`game.sqlite`, plus a `cookie-secret` file used to sign login sessions). Back up the whole `data/` folder, not just the database file. Deleting `cookie-secret` or changing `TABLE_PASSWORD` signs every device out — players just re-enter the password, nothing else is lost.
 
+## Feedback button (optional)
+
+Players can send a bug report or an idea from the **Feedback** button (Tavern and play screen). It becomes a GitHub issue; bug reports include the last few moments of the story. To turn it on:
+
+1. On GitHub, go to **Settings → Developer settings → Fine-grained tokens → Generate new token**.
+2. Under **Repository access**, choose **Only select repositories** and pick this repo.
+3. Under **Permissions → Repository permissions**, set **Issues** to **Read and write**. Nothing else.
+4. Put it in `.env` as `GITHUB_TOKEN=...` (and `GITHUB_REPO=owner/name` if you're using a fork), then restart.
+
+With no token set, the button doesn't appear. Tokens expire: when sending starts failing with "Couldn't send that just now", make a new one.
+
 ## Keeping it private
 
 The server only answers devices on private network addresses, and asks for the table password. Your router blocks the internet from reaching it unless you've set up **port forwarding** for this port. Check your router's admin page and make sure nothing forwards to port 3000.

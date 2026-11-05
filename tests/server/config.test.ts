@@ -17,6 +17,8 @@ describe("loadConfig", () => {
       ollamaKeepAlive: "30m",
       dbPath: "./data/game.sqlite",
       promptBudgetTokens: 12000,
+      githubToken: undefined,
+      githubRepo: "dannisteele/ai-dungeon-master",
     });
   });
 

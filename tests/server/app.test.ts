@@ -5,6 +5,7 @@ import { loadConfig } from "../../src/server/config";
 import type { DungeonMaster } from "../../src/server/dm/dm";
 import { DmError } from "../../src/server/dm/dm";
 import { OllamaError, type ChatClient } from "../../src/server/dm/ollama";
+import { IssueFilerError, type IssueFiler, type NewIssue } from "../../src/server/feedback/github";
 import { createStore, type Store } from "../../src/server/store/store";
 import type { AddressInfo } from "node:net";
 import type { FastifyInstance } from "fastify";
@@ -30,11 +31,11 @@ afterEach(async () => {
   store?.close();
 });
 
-async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }) {
+async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }, issues?: IssueFiler) {
   store = createStore(":memory:");
   unloads = 0;
   const chat: ChatClient = { chat: async () => "", unload };
-  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat }));
+  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
   const req = (method: "GET" | "POST", url: string, payload?: object) =>
@@ -139,6 +140,56 @@ describe("API", () => {
     expect(busy.statusCode).toBe(409);
     expect(busy.json().error).toMatch(/mid-sentence/);
     expect(unloads).toBe(1);
+  });
+
+  it("hides feedback when no GitHub token is set", async () => {
+    const { req } = await start();
+    expect((await req("GET", "/api/feedback")).json()).toEqual({ enabled: false });
+    const r = await req("POST", "/api/feedback", { kind: "idea", title: "Hi", details: "", screen: "lobby" });
+    expect(r.statusCode).toBe(503);
+  });
+
+  it("files a bug report with the recent story attached", async () => {
+    const filed: NewIssue[] = [];
+    const issues: IssueFiler = { file: async (i) => { filed.push(i); return { number: 7, url: "https://github.com/x/y/issues/7" }; } };
+    const { req } = await start(fakeDm(), undefined, issues);
+    expect((await req("GET", "/api/feedback")).json()).toEqual({ enabled: true });
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    const { character } = (await req("POST", `/api/campaigns/${campaign.id}/characters`, { name: "Wren", concept: "scout", scores, items: [] })).json();
+    store.appendEvent(campaign.id, 1, { type: "action", characterId: character.id, text: "I open the crypt." });
+    store.appendEvent(campaign.id, 1, { type: "narration", text: "The door groans." });
+
+    const r = await req("POST", "/api/feedback", {
+      kind: "bug", title: "Dice froze", details: "The die never stopped.", screen: "play", campaignId: campaign.id, characterId: character.id,
+    });
+    expect(r.json()).toEqual({ url: "https://github.com/x/y/issues/7" });
+    expect(filed).toHaveLength(1);
+    expect(filed[0]).toMatchObject({ title: "Dice froze", labels: ["bug"] });
+    expect(filed[0].body).toMatch(/^The die never stopped\./);
+    expect(filed[0].body).toContain("**Playing as:** Wren");
+    expect(filed[0].body).toContain("**Model:** qwen3.6:27b");
+    expect(filed[0].body).toContain("> [round 1] **Wren:** I open the crypt.");
+    expect(filed[0].body).toContain("> [round 1] **DM:** The door groans.");
+  });
+
+  it("files ideas without the story, and validates the form", async () => {
+    const filed: NewIssue[] = [];
+    const issues: IssueFiler = { file: async (i) => { filed.push(i); return { number: 8, url: "u" }; } };
+    const { req } = await start(fakeDm(), undefined, issues);
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    store.appendEvent(campaign.id, 1, { type: "narration", text: "Secret plot." });
+    await req("POST", "/api/feedback", { kind: "idea", title: "Add maps", details: "", screen: "play", campaignId: campaign.id });
+    expect(filed[0].labels).toEqual(["enhancement"]);
+    expect(filed[0].body).not.toContain("Secret plot");
+    expect((await req("POST", "/api/feedback", { kind: "idea", title: " ", details: "", screen: "lobby" })).statusCode).toBe(400);
+  });
+
+  it("says so when GitHub can't be reached", async () => {
+    const issues: IssueFiler = { file: async () => { throw new IssueFilerError("offline"); } };
+    const { req } = await start(fakeDm(), undefined, issues);
+    const r = await req("POST", "/api/feedback", { kind: "bug", title: "x", details: "", screen: "lobby" });
+    expect(r.statusCode).toBe(502);
+    expect(r.json().error).toMatch(/internet/);
   });
 
   it("reports when Ollama can't be reached to pack up", async () => {
