@@ -438,8 +438,9 @@ describe("TurnService", () => {
     await turns.submitAction(id, chars[0].id, "I look around");
     dm.nextChanges = [{ op: "npc", name: "scarred brute", attitude: "hostile", condition: "wounded" }];
     await turns.submitAction(id, chars[0].id, "I hit him");
-    expect(store.getNpcs(id)).toEqual([{ name: "scarred brute", attitude: "hostile", condition: "wounded" }]);
+    // One person however the DM capitalises them; the card keeps the name they were first given.
+    expect(store.getNpcs(id)).toEqual([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]);
     const snap = hub.msgs.filter((m) => m.t === "snapshot").at(-1);
-    expect(snap && snap.t === "snapshot" && snap.snapshot.npcs).toEqual([{ name: "scarred brute", attitude: "hostile", condition: "wounded" }]);
+    expect(snap && snap.t === "snapshot" && snap.snapshot.npcs).toEqual([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]);
   });
 });

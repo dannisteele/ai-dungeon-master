@@ -2,14 +2,21 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import type {
-  AdventureOutline, AiPhase, Campaign, CampaignSummary, Character, GameEvent, Item, Mode, Npc, RoundState, Scores, StoredEvent,
+  AdventureOutline, AiPhase, Attitude, Campaign, CampaignSummary, Character, Condition, DiceMode, GameEvent, Item, Mode, Npc,
+  Person, Realism, RoundState, Scores, StoredEvent,
 } from "../../shared/types";
 
 export class NameTakenError extends Error {}
 
-export interface NewCampaignInput { title: string; mode: Mode; setting: string; pitch: string; outline: AdventureOutline | null }
+export interface NewCampaignInput {
+  title: string; mode: Mode; setting: string; pitch: string; outline: AdventureOutline | null;
+  /** Default fantastical / normal, as campaigns were before these settings existed. */
+  realism?: Realism; dice?: DiceMode;
+}
 export interface NewCharacterInput { campaignId: number; name: string; concept: string; scores: Scores; hp: number; maxHp: number; items: Item[] }
-export type CampaignPatch = Partial<Pick<Campaign, "title" | "sceneTitle" | "summary" | "roundState" | "roundNumber" | "stalledPhase">>;
+export type CampaignPatch = Partial<Pick<Campaign,
+  "title" | "sceneTitle" | "summary" | "pinnedSummary" | "realism" | "dice" | "roundState" | "roundNumber" | "stalledPhase">>;
+export interface PersonPatch { about?: string; notes?: string; aboutEdited?: boolean }
 export interface EventQuery { fromRound?: number; toRound?: number; limit?: number }
 
 export interface Store {
@@ -25,8 +32,19 @@ export interface Store {
   saveCharacter(c: Character): void;
   appendEvent(campaignId: number, round: number, event: GameEvent): StoredEvent;
   getEvents(campaignId: number, query?: EventQuery): StoredEvent[];
+  /** The people in the current scene. */
   getNpcs(campaignId: number): Npc[];
-  saveNpcs(campaignId: number, npcs: Npc[]): void;
+  /**
+   * Records who is in the scene after a round: each is upserted as present (with `about` if given,
+   * unless the player edited theirs); everyone else is kept but marked not present.
+   */
+  saveNpcs(campaignId: number, npcs: Npc[], round?: number): void;
+  /** Everyone met: present first, then most recently seen. */
+  getPeople(campaignId: number): Person[];
+  /** Returns false if there's nobody by that name. */
+  updatePerson(campaignId: number, name: string, patch: PersonPatch): boolean;
+  /** The DM's description, from the summary pass; ignored for unknown or player-edited people. */
+  setPersonAbout(campaignId: number, name: string, about: string): void;
   /** Small app-wide preferences, e.g. the chosen model. */
   getSetting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
@@ -81,23 +99,68 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS ix_events_campaign_round ON events(campaign_id, round_number, id);
-CREATE TABLE IF NOT EXISTS npcs (
-  id INTEGER PRIMARY KEY,
-  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  attitude TEXT NOT NULL,
-  condition TEXT NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_npcs_name ON npcs(campaign_id, lower(name));
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
 `;
 
+/**
+ * Numbered schema upgrades, applied in order on open; PRAGMA user_version records how many have
+ * run. SCHEMA above is version 0 (what saves made before migrations contain). Add new ones at the
+ * end; never edit one that has shipped.
+ */
+const MIGRATIONS: string[] = [
+  // 1: realism and dice settings, the players' pinned story-so-far, and people who persist
+  // between scenes (the old npcs table only held whoever was in the current scene).
+  `
+  ALTER TABLE campaigns ADD COLUMN realism TEXT NOT NULL DEFAULT 'fantastical' CHECK (realism IN ('grounded','fantastical'));
+  ALTER TABLE campaigns ADD COLUMN dice TEXT NOT NULL DEFAULT 'normal' CHECK (dice IN ('normal','big','off'));
+  ALTER TABLE campaigns ADD COLUMN pinned_summary TEXT NOT NULL DEFAULT '';
+  CREATE TABLE people (
+    id INTEGER PRIMARY KEY,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    about TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    about_edited INTEGER NOT NULL DEFAULT 0,
+    attitude TEXT NOT NULL,
+    condition TEXT NOT NULL,
+    present INTEGER NOT NULL DEFAULT 1,
+    last_seen_round INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE UNIQUE INDEX ux_people_name ON people(campaign_id, lower(trim(name)));
+  CREATE TABLE IF NOT EXISTS npcs (id INTEGER PRIMARY KEY, campaign_id INTEGER, name TEXT, attitude TEXT, condition TEXT);
+  INSERT INTO people (campaign_id, name, attitude, condition, present)
+    SELECT campaign_id, trim(name), attitude, condition, 1 FROM npcs ORDER BY id;
+  DROP TABLE npcs;
+  `,
+];
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
+function migrate(db: Database.Database): void {
+  const current = db.pragma("user_version", { simple: true }) as number;
+  for (let v = current; v < MIGRATIONS.length; v++) {
+    db.transaction(() => {
+      db.exec(MIGRATIONS[v]);
+      db.pragma(`user_version = ${v + 1}`);
+    })();
+  }
+}
+
+interface PersonRow {
+  name: string; about: string; notes: string; about_edited: number; attitude: Attitude; condition: Condition;
+  present: number; last_seen_round: number;
+}
+const toPerson = (r: PersonRow): Person => ({
+  name: r.name, about: r.about, notes: r.notes, attitude: r.attitude, condition: r.condition,
+  present: r.present === 1, lastSeenRound: r.last_seen_round, aboutEdited: r.about_edited === 1,
+});
+
 interface CampaignRow {
   id: number; title: string; mode: Mode; setting: string; pitch: string; outline_json: string | null;
-  scene_title: string; summary: string; round_state: RoundState; round_number: number;
+  scene_title: string; summary: string; pinned_summary: string; realism: Realism; dice: DiceMode;
+  round_state: RoundState; round_number: number;
   stalled_phase: AiPhase | null; created_at: string; updated_at: string;
 }
 interface CharacterRow {
@@ -109,7 +172,8 @@ interface EventRow { id: number; campaign_id: number; round_number: number; type
 const toCampaign = (r: CampaignRow): Campaign => ({
   id: r.id, title: r.title, mode: r.mode, setting: r.setting, pitch: r.pitch,
   outline: r.outline_json ? (JSON.parse(r.outline_json) as AdventureOutline) : null,
-  sceneTitle: r.scene_title, summary: r.summary, roundState: r.round_state, roundNumber: r.round_number,
+  sceneTitle: r.scene_title, summary: r.summary, pinnedSummary: r.pinned_summary, realism: r.realism, dice: r.dice,
+  roundState: r.round_state, roundNumber: r.round_number,
   stalledPhase: r.stalled_phase, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
@@ -119,7 +183,7 @@ const toEvent = (r: EventRow): StoredEvent => ({
 });
 
 const PATCH_COLUMNS: Record<keyof CampaignPatch, string> = {
-  title: "title", sceneTitle: "scene_title", summary: "summary", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
+  title: "title", sceneTitle: "scene_title", summary: "summary", pinnedSummary: "pinned_summary", realism: "realism", dice: "dice", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
 };
 
 export function createStore(path: string): Store {
@@ -128,6 +192,7 @@ export function createStore(path: string): Store {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA);
+  migrate(db);
 
   const itemsFor = db.prepare<[number], Item>("SELECT name, description, qty FROM items WHERE character_id = ? ORDER BY id");
   const toCharacter = (r: CharacterRow): Character => ({
@@ -140,8 +205,8 @@ export function createStore(path: string): Store {
 
   const store: Store = {
     createCampaign(i) {
-      const info = db.prepare("INSERT INTO campaigns (title, mode, setting, pitch, outline_json) VALUES (?, ?, ?, ?, ?)")
-        .run(i.title, i.mode, i.setting, i.pitch, i.outline ? JSON.stringify(i.outline) : null);
+      const info = db.prepare("INSERT INTO campaigns (title, mode, setting, pitch, outline_json, realism, dice) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(i.title, i.mode, i.setting, i.pitch, i.outline ? JSON.stringify(i.outline) : null, i.realism ?? "fantastical", i.dice ?? "normal");
       return store.getCampaign(Number(info.lastInsertRowid))!;
     },
     getCampaign(id) {
@@ -235,16 +300,44 @@ export function createStore(path: string): Store {
       return db.prepare<[object], EventRow>(sql).all({ campaignId, ...q }).map(toEvent);
     },
     getNpcs(campaignId) {
-      return db.prepare<[number], Npc>("SELECT name, attitude, condition FROM npcs WHERE campaign_id = ? ORDER BY id").all(campaignId);
+      return db.prepare<[number], Npc>(
+        "SELECT name, attitude, condition FROM people WHERE campaign_id = ? AND present = 1 ORDER BY id",
+      ).all(campaignId);
     },
-    saveNpcs(campaignId, npcs) {
+    saveNpcs(campaignId, npcs, round = 0) {
       const byName = new Map<string, Npc>();
       for (const n of npcs) byName.set(n.name.trim().toLowerCase(), n);
+      const upsert = db.prepare(`
+        INSERT INTO people (campaign_id, name, attitude, condition, about, present, last_seen_round)
+        VALUES (@campaignId, @name, @attitude, @condition, coalesce(@about, ''), 1, @round)
+        ON CONFLICT (campaign_id, lower(trim(name))) DO UPDATE SET
+          attitude = excluded.attitude, condition = excluded.condition, present = 1, last_seen_round = excluded.last_seen_round,
+          about = CASE WHEN @about IS NOT NULL AND about_edited = 0 THEN @about ELSE about END`);
       db.transaction(() => {
-        db.prepare("DELETE FROM npcs WHERE campaign_id = ?").run(campaignId);
-        const insert = db.prepare("INSERT INTO npcs (campaign_id, name, attitude, condition) VALUES (?, ?, ?, ?)");
-        for (const n of byName.values()) insert.run(campaignId, n.name, n.attitude, n.condition);
+        db.prepare("UPDATE people SET present = 0 WHERE campaign_id = ?").run(campaignId);
+        for (const n of byName.values()) {
+          upsert.run({ campaignId, name: n.name.trim(), attitude: n.attitude, condition: n.condition, about: n.about ?? null, round });
+        }
       })();
+    },
+    getPeople(campaignId) {
+      return db.prepare<[number], PersonRow>(
+        "SELECT * FROM people WHERE campaign_id = ? ORDER BY present DESC, last_seen_round DESC, id",
+      ).all(campaignId).map(toPerson);
+    },
+    updatePerson(campaignId, name, patch) {
+      const sets: string[] = [];
+      if (patch.about !== undefined) sets.push("about = @about");
+      if (patch.notes !== undefined) sets.push("notes = @notes");
+      if (patch.aboutEdited !== undefined) sets.push("about_edited = @aboutEdited");
+      if (sets.length === 0) return !!db.prepare("SELECT 1 FROM people WHERE campaign_id = ? AND lower(trim(name)) = lower(trim(?))").get(campaignId, name);
+      const info = db.prepare(`UPDATE people SET ${sets.join(", ")} WHERE campaign_id = @campaignId AND lower(trim(name)) = lower(trim(@name))`)
+        .run({ campaignId, name, about: patch.about, notes: patch.notes, aboutEdited: patch.aboutEdited ? 1 : 0 });
+      return info.changes > 0;
+    },
+    setPersonAbout(campaignId, name, about) {
+      db.prepare("UPDATE people SET about = ? WHERE campaign_id = ? AND lower(trim(name)) = lower(trim(?)) AND about_edited = 0")
+        .run(about, campaignId, name);
     },
     getSetting(key) {
       return db.prepare<[string], { value: string }>("SELECT value FROM settings WHERE key = ?").get(key)?.value;

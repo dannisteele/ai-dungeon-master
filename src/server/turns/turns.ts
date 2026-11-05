@@ -281,7 +281,7 @@ export class TurnService {
       const result = rules.applyOps(store.getCharacters(id), changes, store.getNpcs(id));
       if (mode === "revive") for (const ch of result.characters) ch.hp = Math.max(ch.hp, rules.reviveHp(ch));
       for (const ch of result.characters) store.saveCharacter(ch);
-      store.saveNpcs(id, result.npcs);
+      store.saveNpcs(id, result.npcs, c.roundNumber);
       store.appendEvent(id, c.roundNumber, { type: "narration", text: out.narration });
       for (const op of result.applied) store.appendEvent(id, c.roundNumber, { type: "op_applied", op });
       for (const r of result.rejected) store.appendEvent(id, c.roundNumber, { type: "op_rejected", op: r.op, reason: r.reason });

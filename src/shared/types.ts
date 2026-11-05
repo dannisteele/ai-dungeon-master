@@ -6,7 +6,27 @@ export const ATTITUDES = ["hostile", "wary", "neutral", "friendly"] as const;
 export type Attitude = (typeof ATTITUDES)[number];
 export const CONDITIONS = ["unhurt", "wounded", "badly hurt", "down"] as const;
 export type Condition = (typeof CONDITIONS)[number];
-export interface Npc { name: string; attitude: Attitude; condition: Condition }
+/** Someone in the current scene (the Nearby strip). `about` is the DM's description, when it gives one. */
+export interface Npc { name: string; attitude: Attitude; condition: Condition; about?: string }
+/** Everyone the heroes have met, present or not: the People cards. */
+export interface Person {
+  name: string;
+  /** The DM's description; the player may edit it, which sets aboutEdited. */
+  about: string;
+  /** The player's own notes; the DM never writes these. */
+  notes: string;
+  attitude: Attitude;
+  condition: Condition;
+  present: boolean;
+  lastSeenRound: number;
+  /** The player rewrote `about`, so the DM must not overwrite it. */
+  aboutEdited: boolean;
+}
+
+export const REALISMS = ["grounded", "fantastical"] as const;
+export type Realism = (typeof REALISMS)[number];
+export const DICE_MODES = ["normal", "big", "off"] as const;
+export type DiceMode = (typeof DICE_MODES)[number];
 
 export interface Item { name: string; description: string; qty: number }
 
@@ -48,6 +68,10 @@ export interface Campaign {
   outline: AdventureOutline | null;
   sceneTitle: string;
   summary: string;
+  /** The players' own story-so-far, kept word for word; `summary` then covers only what came after. */
+  pinnedSummary: string;
+  realism: Realism;
+  dice: DiceMode;
   roundState: RoundState;
   roundNumber: number;
   stalledPhase: AiPhase | null;
@@ -90,7 +114,7 @@ export type GameEvent =
   | { type: "narration"; text: string }
   | { type: "op_applied"; op: Op }
   | { type: "op_rejected"; op: unknown; reason: string }
-  | { type: "summary"; text: string; throughRound: number }
+  | { type: "summary"; text: string; throughRound: number; edited?: boolean }
   | { type: "party_fallen" }
   | { type: "stall"; phase: AiPhase; error: string };
 
@@ -110,6 +134,7 @@ export interface Snapshot {
   campaign: Campaign;
   characters: Character[];
   npcs: Npc[];
+  people: Person[];
   events: StoredEvent[];
   round: RoundStatus;
   activeIds: number[];

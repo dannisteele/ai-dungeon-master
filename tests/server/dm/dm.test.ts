@@ -24,7 +24,7 @@ class FakeChat implements ChatClient {
 }
 
 const ctx: DmContext = {
-  campaign: { id: 1, title: "T", mode: "solo", setting: "S", pitch: "", outline: null, sceneTitle: "", summary: "", roundState: "resolving", roundNumber: 1, stalledPhase: null, createdAt: "", updatedAt: "" },
+  campaign: { id: 1, title: "T", mode: "solo", setting: "S", pitch: "", outline: null, sceneTitle: "", summary: "", pinnedSummary: "", realism: "fantastical", dice: "normal", roundState: "resolving", roundNumber: 1, stalledPhase: null, createdAt: "", updatedAt: "" },
   characters: [], npcs: [], recentRounds: [],
 };
 const make = (replies: (string | Error)[]) => {
