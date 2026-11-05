@@ -41,6 +41,9 @@ export function systemPrompt(rules: RulesEngine, realism: Realism = "fantastical
     "- Give every character who acted a moment in the spotlight.",
     "- Never decide what player characters say, think or choose. Describe the world and how it reacts, then invite the players to act.",
     "- When a player's action is vague about what they say or ask (for example \"I ask some questions\" or \"I chat to her\"), don't invent their words. Have the NPC react in character and end by asking that player what exactly they say or ask.",
+    "- If a player points out something that doesn't make sense (someone who shouldn't be there, a contradiction), the story got it wrong: fix it. Give a sensible, ordinary explanation or quietly correct it (they leave, it was a misunderstanding). Never have characters argue the point or insist.",
+    "- Never bring someone into a scene without showing how they got there. Someone who refused or left doesn't simply turn up.",
+    "- Every round must move the story on. Don't reuse sentences or phrases from your earlier narration; if a question is asked again, answer it differently and concretely.",
     ...tone.story,
     "",
     "Fairness:",
@@ -150,6 +153,7 @@ export function adjudicateTask(actions: ActionInput[], dice: DiceMode = "normal"
     ...actions.map((a) => `- ${a.character}: ${a.text}`),
     "",
     "Decide which of these actions are risky or uncertain enough to need an ability check. Ordinary actions need no check.",
+    "Decisions and simple choices (deciding, agreeing, declining, sending a message, booking something) never need a check: only actions whose success is genuinely in doubt.",
     ...(dice === "big"
       ? ["Only call for a check at a genuinely pivotal moment: where failure would change the course of the story (a confrontation, a big gamble, real danger). Everyday actions, conversations and most rounds need no check. At most one check this round."]
       : []),
@@ -177,6 +181,7 @@ export function resolveTask(input: ResolveInput, dice: DiceMode = "normal"): str
       ? ["There are no dice in this game. Decide outcomes fairly from the situation and the characters' abilities and condition. Plans can fail, people can say no, and actions have consequences; not everything succeeds."]
       : []),
     "Narrate what happens, honouring every result. End by inviting the players to act.",
+    "Don't repeat sentences or phrases from your earlier narration. If a hero questions something that doesn't add up, fix it now: give a clear, sensible answer or correct the story. Never have characters insist or argue about it.",
     "If an action says a hero asks, talks or chats without giving their actual words, do not write those words for them: have the other person respond and end your narration with that person asking the hero, in quotes, what they want to say or know.",
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, change of location, and every person or group in the scene who appears, is hurt, changes attitude or leaves into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
@@ -186,6 +191,17 @@ export function resolveTask(input: ResolveInput, dice: DiceMode = "normal"): str
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"npc","name":"<npc name>","attitude":"hostile","condition":"wounded"},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nothing changed for the heroes or the people nearby.',
   );
   return lines.join("\n");
+}
+
+/**
+ * Small models copy their own last reply when a scene stalls (issue #28). Quoting its first sentence
+ * back, with an order to start differently, breaks the loop where a general rule doesn't.
+ */
+export function freshReplyLine(rounds: RoundTranscript[]): string {
+  const last = rounds.flatMap((r) => r.lines).filter((l) => l.startsWith("DM: ")).at(-1);
+  if (!last) return "";
+  const first = last.slice(4).split(/(?<=[.!?])\s/)[0]!.slice(0, 200);
+  return `Your previous reply began: "${first}" This round's reply must say something new: start differently, don't reuse its sentences, and move the story forward.`;
 }
 
 export function openingTask(): string {
@@ -244,6 +260,7 @@ export function summaryMessages(
         pinned
           ? "Rewrite what has happened since the players' story in at most 300 words, summarising only events after it. Keep names, places, unresolved threads, promises, debts and important items."
           : "Rewrite the story-so-far in at most 300 words. Keep names, places, unresolved threads, promises, debts and important items.",
+        "If a player corrected or undid something (said it didn't happen or isn't possible), leave it out as if it never happened.",
         ...(people.length
           ? [
             "",

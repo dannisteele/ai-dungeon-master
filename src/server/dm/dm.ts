@@ -5,7 +5,7 @@ import type { DmContext, RoundTranscript } from "./context";
 import { NarrationExtractor } from "./narrationStream";
 import { OllamaError, type ChatClient, type ChatMessage } from "./ollama";
 import {
-  adjudicateTask, buildMessages, kitMessages, openingTask, resolveTask, summaryMessages, reviveTask,
+  adjudicateTask, buildMessages, freshReplyLine, kitMessages, openingTask, resolveTask, summaryMessages, reviveTask,
   type ActionInput, type ResolveInput,
 } from "./prompts";
 import {
@@ -62,19 +62,21 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
     throw new DmError(`The Dungeon Master gave an unusable reply twice (${lastError})`);
   }
 
+  const withFresh = (task: string, ctx: DmContext) => [task, freshReplyLine(ctx.recentRounds)].filter(Boolean).join("\n");
+
   return {
     async adjudicate(ctx, actions) {
       const out = await callStructured(buildMessages(ctx, rules, adjudicateTask(actions, ctx.campaign.dice), budgetTokens), AdjudicateSchema, adjudicateFormat);
       return out.checks;
     },
     resolve(ctx, input, stream) {
-      return callStructured(buildMessages(ctx, rules, resolveTask(input, ctx.campaign.dice), budgetTokens), ResolveParseSchema, resolveFormat, stream);
+      return callStructured(buildMessages(ctx, rules, withFresh(resolveTask(input, ctx.campaign.dice), ctx), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     opening(ctx, stream) {
       return callStructured(buildMessages(ctx, rules, openingTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     revive(ctx, stream) {
-      return callStructured(buildMessages(ctx, rules, reviveTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);
+      return callStructured(buildMessages(ctx, rules, withFresh(reviveTask(), ctx), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     async startingKit(input) {
       const out = await callStructured(kitMessages(input), KitSchema, kitFormat);
