@@ -4,6 +4,8 @@ import type {
 
 export interface FeedbackRequest {
   kind: "bug" | "idea"; title: string; details: string; screen: string; campaignId?: number; characterId?: number;
+  /** Reports are public on GitHub, so the story goes in only when ticked. */
+  includeStory: boolean;
 }
 
 export interface ModelChoice { name: string; label: string; installed: boolean }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIssueBody, createGitHubIssueFiler, IssueFilerError } from "../../../src/server/feedback/github";
 
 const ctx = {
+  includeStory: false,
   kind: "bug" as const, details: "", screen: "lobby", appVersion: "1.0.0", model: "m", characters: [], events: [],
   now: new Date("2026-11-05T20:00:00Z"),
 };
@@ -15,9 +16,31 @@ describe("buildIssueBody", () => {
     expect(body).not.toContain("Campaign");
   });
 
+  it("leaves out the story, scene and summary unless asked, for bugs and ideas alike", () => {
+    const withStory = {
+      ...ctx,
+      campaign: { id: 2, title: "Derelict", setting: "Sci-fi Derelict", sceneTitle: "The Airlock", round: 3 },
+      summary: "They boarded the ship.",
+      events: [{ id: 1, campaignId: 2, round: 1, createdAt: "", type: "narration" as const, text: "The hatch hisses." }],
+    };
+    for (const kind of ["bug", "idea"] as const) {
+      const hidden = buildIssueBody({ ...withStory, kind, includeStory: false });
+      expect(hidden).not.toContain("Recent story");
+      expect(hidden).not.toContain("The hatch hisses");
+      expect(hidden).not.toContain("The Airlock");
+      expect(hidden).not.toContain("They boarded the ship");
+      expect(hidden).toContain("**Campaign:** Derelict (campaign 2), round 3");
+      const shown = buildIssueBody({ ...withStory, kind, includeStory: true });
+      expect(shown).toContain("**Campaign:** Derelict (campaign 2), round 3, The Airlock");
+      expect(shown).toContain("**Story so far**");
+      expect(shown).toContain("They boarded the ship.");
+      expect(shown).toContain("> [round 1] **DM:** The hatch hisses.");
+    }
+  });
+
   it("never writes #number, which GitHub would turn into a link to another issue", () => {
     const body = buildIssueBody({
-      ...ctx,
+      ...ctx, includeStory: true,
       campaign: { id: 2, title: "Derelict", setting: "Sci-fi Derelict", sceneTitle: "", round: 0 },
       events: [{ id: 1, campaignId: 2, round: 1, createdAt: "", type: "action", characterId: 9, text: "I look." }],
     });
@@ -29,7 +52,7 @@ describe("buildIssueBody", () => {
 
   it("notes an empty description and flattens multi-line narration", () => {
     const body = buildIssueBody({
-      ...ctx,
+      ...ctx, includeStory: true,
       events: [{ id: 1, campaignId: 1, round: 2, createdAt: "", type: "narration", text: "One.\n\nTwo." }],
     });
     expect(body).toContain("_No details given._");

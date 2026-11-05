@@ -50,6 +50,8 @@ export const FeedbackSchema = z.object({
   screen: z.string().trim().max(40),
   campaignId: z.number().int().optional(),
   characterId: z.number().int().optional(),
+  /** Reports are public on GitHub, so story text goes in only when the player asks. */
+  includeStory: z.boolean().default(false),
 });
 
 /** How many recent events go into a bug report. */
@@ -196,15 +198,15 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     if (!feedback) return reply.code(503).send({ error: "Feedback isn't set up on this computer." });
     const parsed = FeedbackSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(bad(parsed.error));
-    const { kind, title, details, screen, campaignId, characterId } = parsed.data;
+    const { kind, title, details, screen, campaignId, characterId, includeStory } = parsed.data;
     const campaign = campaignId === undefined ? undefined : store.getCampaign(campaignId);
     const characters = campaign ? store.getCharacters(campaign.id) : [];
     const body = buildIssueBody({
-      kind, details, screen, appVersion: version, model: chat.getModel(), userAgent: req.headers["user-agent"],
-      campaign: campaign && { id: campaign.id, title: campaign.title, setting: settingLabel(campaign), sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
+      kind, details, screen, includeStory, summary: campaign?.summary, appVersion: version, model: chat.getModel(), userAgent: req.headers["user-agent"],
+      campaign: campaign && { id: campaign.id, title: campaign.title, setting: settingLabel(campaign, { includePitch: includeStory }), sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
       character: characters.find((c) => c.id === characterId),
       characters,
-      events: campaign ? store.getEvents(campaign.id, { limit: FEEDBACK_EVENTS }) : [],
+      events: campaign && includeStory ? store.getEvents(campaign.id, { limit: FEEDBACK_EVENTS }) : [],
       now: new Date(),
     });
     try {
