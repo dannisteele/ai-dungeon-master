@@ -47,7 +47,7 @@ export interface FeedbackContext {
   appVersion: string;
   model: string;
   userAgent?: string;
-  campaign?: { id: number; title: string; sceneTitle: string; round: number };
+  campaign?: { id: number; title: string; setting: string; sceneTitle: string; round: number };
   character?: Pick<Character, "name">;
   characters: Pick<Character, "id" | "name">[];
   events: StoredEvent[];
@@ -83,7 +83,8 @@ export function buildIssueBody(ctx: FeedbackContext): string {
     ["App version", ctx.appVersion],
     ["Model", ctx.model],
     // Never "#2": GitHub would turn it into a link to issue or PR 2 and show that title instead.
-    ["Campaign", ctx.campaign && `${ctx.campaign.title} (campaign ${ctx.campaign.id}), round ${ctx.campaign.round}${ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
+    ["Campaign", ctx.campaign && `${ctx.campaign.title} (campaign ${ctx.campaign.id}), ${ctx.campaign.round === 0 ? "not started yet" : `round ${ctx.campaign.round}`}${ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
+    ["Setting", ctx.campaign?.setting],
     ["Playing as", ctx.character?.name],
     ["Device", ctx.userAgent],
   ];

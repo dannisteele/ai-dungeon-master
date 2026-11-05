@@ -206,6 +206,7 @@ describe("API", () => {
     expect(filed[0]).toMatchObject({ title: "Dice froze", labels: ["bug"] });
     expect(filed[0].body).toMatch(/^The die never stopped\./);
     expect(filed[0].body).toContain("**Playing as:** Wren");
+    expect(filed[0].body).toContain("**Setting:** Gothic Horror");
     expect(filed[0].body).toContain("**Model:** qwen3.6:27b");
     expect(filed[0].body).toContain("> [round 1] **Wren:** I open the crypt.");
     expect(filed[0].body).toContain("> [round 1] **DM:** The door groans.");
