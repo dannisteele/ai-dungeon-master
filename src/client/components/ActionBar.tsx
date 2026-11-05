@@ -6,9 +6,9 @@ import { nameOf } from "../lib/story";
 import { useDmWaking } from "../lib/waking";
 import { NearbyStrip } from "./NearbyStrip";
 
-interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void; rollingIds?: Set<number> }
+interface Props { snapshot: Snapshot; me: Character | null; campaignId: number; error: string | null; send: (m: ClientMsg) => void; rollingIds?: Set<number>; onAbout?: (name: string) => void }
 
-export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds }: Props) {
+export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds, onAbout }: Props) {
   const { campaign, characters, round, activeIds } = snapshot;
   const [text, setText] = useState("");
   useEffect(() => setText(""), [campaign.roundNumber]);
@@ -122,7 +122,7 @@ export function ActionBar({ snapshot, me, campaignId, error, send, rollingIds }:
   }
   return (
     <div className="action-bar">
-      <NearbyStrip npcs={snapshot.npcs} canAct={canAct} onPick={(s) => setText((t) => appendAction(t, s))} />
+      <NearbyStrip npcs={snapshot.npcs} canAct={canAct} onPick={(s) => setText((t) => appendAction(t, s))} onAbout={onAbout} />
       {body}
       {error && <p className="error">{error}</p>}
     </div>

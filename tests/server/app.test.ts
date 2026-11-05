@@ -146,6 +146,27 @@ describe("API", () => {
     expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "big" })).statusCode).toBe(409);
   });
 
+  it("edits people cards: notes, the description, and handing it back to the DM", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    store.saveNpcs(campaign.id, [{ name: "Mrs Bell", attitude: "friendly", condition: "unhurt", about: "A baker." }], 1);
+    const url = (name: string) => `/api/campaigns/${campaign.id}/people/${encodeURIComponent(name)}`;
+
+    const notes = await req("PATCH", url("mrs bell"), { notes: "My aunt." });
+    expect(notes.json().people[0]).toMatchObject({ name: "Mrs Bell", notes: "My aunt.", about: "A baker.", aboutEdited: false });
+    const about = await req("PATCH", url("Mrs Bell"), { about: "My aunt, the baker." });
+    expect(about.json().people[0]).toMatchObject({ about: "My aunt, the baker.", aboutEdited: true });
+    const back = await req("PATCH", url("Mrs Bell"), { letDmUpdate: true });
+    expect(back.json().people[0]).toMatchObject({ about: "My aunt, the baker.", aboutEdited: false });
+
+    expect((await req("PATCH", url("Mrs Bell"), { notes: "x".repeat(501) })).statusCode).toBe(400);
+    expect((await req("PATCH", url("Mrs Bell"), {})).statusCode).toBe(400);
+    expect((await req("PATCH", url("Nobody"), { notes: "x" })).statusCode).toBe(404);
+    expect((await req("PATCH", "/api/campaigns/999/people/Bell", { notes: "x" })).statusCode).toBe(404);
+    store.updateCampaign(campaign.id, { roundState: "resolving" });
+    expect((await req("PATCH", url("Mrs Bell"), { notes: "x" })).statusCode).toBe(409);
+  });
+
   it("spends ability points", async () => {
     const { req } = await start();
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "classic-fantasy" } })).json();

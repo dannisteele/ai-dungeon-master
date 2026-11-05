@@ -4,7 +4,9 @@ import { clampMenuLeft, quickActionText, type QuickAction } from "../lib/npcs";
 
 const ACTIONS: [QuickAction, string][] = [["attack", "⚔ Attack"], ["talk", "💬 Talk to"], ["watch", "👁 Watch"]];
 
-export function NearbyStrip({ npcs, canAct, onPick }: { npcs: Npc[]; canAct: boolean; onPick: (sentence: string) => void }) {
+export function NearbyStrip({ npcs, canAct, onPick, onAbout }: {
+  npcs: Npc[]; canAct: boolean; onPick: (sentence: string) => void; onAbout?: (name: string) => void;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const [menuLeft, setMenuLeft] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -22,7 +24,9 @@ export function NearbyStrip({ npcs, canAct, onPick }: { npcs: Npc[]; canAct: boo
     return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  useEffect(() => { if (!canAct) setOpen(null); }, [canAct]);
+  // Without an About action there's nothing to offer while the player can't act.
+  const usable = canAct || !!onAbout;
+  useEffect(() => { if (!usable) setOpen(null); }, [usable]);
 
   // The menu lives outside the horizontally-scrolling strip (see theme.css note), so its
   // desired position is computed from the chip's layout offset minus how far the strip has
@@ -53,7 +57,7 @@ export function NearbyStrip({ npcs, canAct, onPick }: { npcs: Npc[]; canAct: boo
         {npcs.map((n) => (
           <div key={n.name} className="npc-wrap" ref={(el) => { chipRefs.current[n.name] = el; return () => { delete chipRefs.current[n.name]; }; }}>
             <button type="button" className={`npc-chip npc-${n.attitude}${n.condition === "down" ? " npc-down" : ""}`}
-              disabled={!canAct} aria-expanded={open === n.name} title={`${n.attitude}, ${n.condition}`}
+              disabled={!usable} aria-expanded={open === n.name} title={`${n.attitude}, ${n.condition}`}
               onClick={() => toggle(n.name)}>
               <span className="npc-name">{n.name}</span>
               <small className="npc-condition">{n.condition}</small>
@@ -64,8 +68,9 @@ export function NearbyStrip({ npcs, canAct, onPick }: { npcs: Npc[]; canAct: boo
       {open && (
         <div className="npc-menu" role="menu" ref={menuRef} style={{ left: menuLeft }}>
           {ACTIONS.map(([kind, label]) => (
-            <button key={kind} type="button" role="menuitem" onClick={() => { onPick(quickActionText(kind, open)); setOpen(null); }}>{label}</button>
+            <button key={kind} type="button" role="menuitem" disabled={!canAct} onClick={() => { onPick(quickActionText(kind, open)); setOpen(null); }}>{label}</button>
           ))}
+          {onAbout && <button type="button" role="menuitem" onClick={() => { onAbout(open); setOpen(null); }}>ℹ About</button>}
         </div>
       )}
     </div>
