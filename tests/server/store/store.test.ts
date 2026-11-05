@@ -27,7 +27,7 @@ describe("store", () => {
 
   it("round-trips an adventure outline", () => {
     store = createStore(":memory:");
-    const outline = { id: "x", title: "X", setting: "s", pitch: "p", goal: "g", villain: "v", locations: ["a"], beats: ["b"] };
+    const outline = { id: "x", title: "X", setting: "s", pitch: "p", goal: "g", villain: "v", locations: ["a"], beats: ["b"], realism: "fantastical" as const };
     const c = store.createCampaign({ title: "X", mode: "solo", setting: "s", pitch: "p", outline });
     expect(store.getCampaign(c.id)?.outline).toEqual(outline);
   });

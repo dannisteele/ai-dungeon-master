@@ -104,7 +104,7 @@ describe("DungeonMaster", () => {
   it("caps the starting kit at 5 items", async () => {
     const items = Array.from({ length: 7 }, (_, i) => ({ name: `Item ${i}`, description: "d" }));
     const { dm } = make([JSON.stringify({ items })]);
-    expect(await dm.startingKit({ name: "Wren", concept: "scout", setting: "S" })).toHaveLength(5);
+    expect(await dm.startingKit({ name: "Wren", concept: "scout", setting: "S", realism: "fantastical" })).toHaveLength(5);
   });
 
   it("summarises", async () => {

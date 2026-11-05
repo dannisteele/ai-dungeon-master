@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ABILITIES, AI_PHASES, type AdventureOutline } from "../../shared/types";
+import { ABILITIES, AI_PHASES, REALISMS, type AdventureOutline } from "../../shared/types";
 import { campaignInputFrom, PRESETS, settingLabel } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
@@ -16,7 +16,10 @@ export const NewCampaignSchema = z.object({
   title: z.string().trim().max(80).optional(),
   source: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("preset"), presetId: z.string() }),
-    z.object({ kind: z.literal("pitch"), pitch: z.string().trim().min(10, "Write at least a sentence for your pitch.").max(1000) }),
+    z.object({
+      kind: z.literal("pitch"), pitch: z.string().trim().min(10, "Write at least a sentence for your pitch.").max(1000),
+      realism: z.enum(REALISMS).optional(),
+    }),
     z.object({ kind: z.literal("adventure"), adventureId: z.string() }),
   ]),
 });
@@ -72,7 +75,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
 
   app.get("/api/presets", async () => ({
     presets: PRESETS,
-    adventures: adventures.map(({ id, title, pitch }) => ({ id, title, pitch })),
+    adventures: adventures.map(({ id, title, pitch, realism }) => ({ id, title, pitch, realism })),
   }));
 
   app.get("/api/campaigns", async () => ({ campaigns: store.listCampaigns() }));
@@ -118,7 +121,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const campaign = store.getCampaign(parsed.data.campaignId);
     if (!campaign) return reply.code(404).send({ error: "No such campaign." });
     try {
-      return { items: await dm.startingKit({ name: parsed.data.name, concept: parsed.data.concept, setting: campaign.setting }) };
+      return { items: await dm.startingKit({ name: parsed.data.name, concept: parsed.data.concept, setting: campaign.setting, realism: campaign.realism }) };
     } catch (e) {
       if (e instanceof DmError) return reply.code(503).send({ error: "The Dungeon Master couldn't pack a kit just now. Try again." });
       throw e;

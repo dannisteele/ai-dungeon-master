@@ -1,5 +1,5 @@
 import { formatModifier, modifier } from "../../shared/abilities";
-import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type Npc } from "../../shared/types";
+import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type Npc, type Realism } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
 import type { DmContext, RoundTranscript } from "./context";
 import type { ChatMessage } from "./ollama";
@@ -13,7 +13,26 @@ export interface ResolveInput { actions: ActionInput[]; skipped: string[]; rolls
 
 export const estimateTokens = (s: string) => Math.ceil(s.length / 4);
 
-export function systemPrompt(rules: RulesEngine): string {
+/** How the DM's story should feel. Grounded stories must stay possible in the real world. */
+const TONE: Record<Realism, { story: string[]; danger: string; items: string }> = {
+  fantastical: {
+    story: ["- Keep the story moving toward the campaign's goal, with danger, mystery and some humour."],
+    danger: "- Danger is real. When an enemy attacks, a trap springs or a risky check fails, someone usually gets hurt: narrate the hit and add a damage op (1-4 minor, 5-8 serious, 9-15 deadly). A natural 1 in a dangerous moment always costs HP.",
+    items: "- Keep magic items, adjust_stat and level_up rare; level_up only after a major victory or milestone.",
+  },
+  grounded: {
+    story: [
+      "- This is a grounded, realistic story. Everything that happens must be possible in the real world of the setting: no magic, no supernatural events, no monsters, no impossible technology, no portals or visions. If something seems strange, it has an ordinary explanation.",
+      "- Anything the players' pitch or notes establish is true in this world, even if unusual; add nothing impossible beyond it. If a hero tries something impossible (casting a spell, say), they are a person attempting it: nothing magical happens, and people may react to the odd behaviour. Don't lecture the player.",
+      "- Drama comes from people, choices, money, time, relationships and consequences. Keep it lively, specific and sometimes funny; ordinary life is full of small surprises.",
+    ],
+    danger: "- Harm only happens when the story really involves it (an accident, a fight the heroes start, a dangerous job); then narrate it and add a damage op (1-4 minor, 5-8 serious, 9-15 deadly).",
+    items: "- Items are ordinary, realistic things. Keep adjust_stat and level_up rare; level_up only after a major achievement.",
+  },
+};
+
+export function systemPrompt(rules: RulesEngine, realism: Realism = "fantastical"): string {
+  const tone = TONE[realism];
   return [
     "You are the Dungeon Master for a tabletop roleplaying game played by friends at home.",
     "",
@@ -22,7 +41,7 @@ export function systemPrompt(rules: RulesEngine): string {
     "- Give every character who acted a moment in the spotlight.",
     "- Never decide what player characters say, think or choose. Describe the world and how it reacts, then invite the players to act.",
     "- When a player's action is vague about what they say or ask (for example \"I ask some questions\" or \"I chat to her\"), don't invent their words. Have the NPC react in character and end by asking that player what exactly they say or ask.",
-    "- Keep the story moving toward the campaign's goal, with danger, mystery and some humour.",
+    ...tone.story,
     "",
     "Fairness:",
     "- The game app rolls all dice. Never invent dice results. A failed check fails; a successful one succeeds.",
@@ -34,20 +53,23 @@ export function systemPrompt(rules: RulesEngine): string {
     '- You cannot edit sheets directly. Every change to HP or belongings that happens in your narration MUST also appear in "changes", using only these ops:',
     rules.opsGuide,
     "- If it isn't in changes, it didn't happen: a wound narrated without a damage op is lost, and an item picked up without add_item never reaches the pack.",
-    "- Danger is real. When an enemy attacks, a trap springs or a risky check fails, someone usually gets hurt: narrate the hit and add a damage op (1-4 minor, 5-8 serious, 9-15 deadly). A natural 1 in a dangerous moment always costs HP.",
+    tone.danger,
     "- When characters find, loot, buy or are given something they could carry (coins, keys, potions, notes, trophies), add_item it. When they use up, give away, throw, break or lose an item, remove_item it. Rest, potions and healing restore HP with heal.",
     "- Use set_scene whenever the party arrives somewhere new.",
     "- Keep the Nearby list true: when a notable NPC or group appears, add them with an npc op; when their attitude or condition changes (an attack lands, they are persuaded, they flee), update them; when they leave, npc_gone them. Put set_scene before npc ops when the party moves.",
     "- Use characters' exact names. Only remove items a character actually has (see the party sheet).",
     "- Only remove items when the story takes, uses up, breaks or loses them. Downed or dead characters keep their belongings unless someone takes them.",
-    "- Keep magic items, adjust_stat and level_up rare; level_up only after a major victory or milestone.",
+    tone.items,
     "",
     "Always reply with a single JSON object and nothing else.",
   ].join("\n");
 }
 
 export function campaignBlock(c: Campaign): string {
-  const lines = [`Campaign: ${c.title}`, `Setting: ${c.setting}`];
+  const lines = [
+    `Campaign: ${c.title}`, `Setting: ${c.setting}`,
+    c.realism === "grounded" ? "Tone: grounded (realistic, nothing impossible)" : "Tone: fantastical",
+  ];
   if (c.pitch) lines.push(`Pitch: ${c.pitch}`);
   if (c.outline) {
     lines.push(
@@ -130,7 +152,7 @@ export function reviveTask(): string {
   ].join("\n");
 }
 
-export function kitMessages(input: { name: string; concept: string; setting: string }): ChatMessage[] {
+export function kitMessages(input: { name: string; concept: string; setting: string; realism: Realism }): ChatMessage[] {
   return [
     { role: "system", content: "You help players equip new characters for a tabletop roleplaying game. Always reply with a single JSON object and nothing else." },
     {
@@ -138,7 +160,9 @@ export function kitMessages(input: { name: string; concept: string; setting: str
       content: [
         `Setting: ${input.setting}`,
         `Character: ${input.name}, ${input.concept}`,
-        "Suggest 3 to 5 practical, flavourful starting items that fit this character. Keep them modest: no powerful magic.",
+        input.realism === "grounded"
+          ? "Suggest 3 to 5 everyday items a real person like this would carry in this setting: realistic and specific, nothing magical or impossible."
+          : "Suggest 3 to 5 practical, flavourful starting items that fit this character. Keep them modest: no powerful magic.",
         'Reply as JSON: {"items": [{"name": "<short item name>", "description": "<one short sentence>"}]}.',
       ].join("\n"),
     },
@@ -163,7 +187,7 @@ export function summaryMessages(oldSummary: string, rounds: RoundTranscript[]): 
 }
 
 export function buildMessages(ctx: DmContext, rules: RulesEngine, task: string, budgetTokens: number): ChatMessage[] {
-  const system = systemPrompt(rules);
+  const system = systemPrompt(rules, ctx.campaign.realism);
   let rounds = [...ctx.recentRounds];
   const render = () => [
     campaignBlock(ctx.campaign),
