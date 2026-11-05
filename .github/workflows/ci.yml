@@ -9,6 +9,7 @@ jobs:
   test:
     name: Tests (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -25,6 +26,7 @@ jobs:
     # laptop: newest LTS Node, npm.cmd ci --ignore-scripts, Windows PowerShell 5.1.
     name: Windows install
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
