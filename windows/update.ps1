@@ -38,7 +38,7 @@ function Show-Notes($tags) {
 # Copy the saves (database plus its WAL files) to data\backups\<time> <version>, keep the newest 10.
 function Backup-Saves($label) {
   $db = Env-Value "DB_PATH" "./data/game.sqlite"
-  if (-not [IO.Path]::IsPathRooted($db)) { $db = Join-Path $Root $db }
+  if (-not [IO.Path]::IsPathRooted($db)) { $db = [IO.Path]::GetFullPath((Join-Path $Root $db)) }
   if (-not (Test-Path $db)) { return $null }
   $backups = Join-Path (Split-Path -Parent $db) "backups"
   $dest = Join-Path $backups "$(Get-Date -Format 'yyyy-MM-dd HHmm') $label"
