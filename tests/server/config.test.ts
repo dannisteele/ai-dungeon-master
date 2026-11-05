@@ -16,6 +16,7 @@ describe("loadConfig", () => {
       ollamaModel: "qwen3.6:27b",
       ollamaKeepAlive: "30m",
       dbPath: "./data/game.sqlite",
+      ollamaNumCtx: 16384,
       promptBudgetTokens: 12000,
       githubToken: undefined,
       githubRepo: "dannisteele/ai-dungeon-master",
@@ -32,6 +33,13 @@ describe("loadConfig", () => {
     expect(c.ollamaModel).toBe("qwen3.5:9b");
     expect(c.ollamaKeepAlive).toBe("5m");
     expect(c.promptBudgetTokens).toBe(8000);
+  });
+
+  it("scales the prompt budget with a smaller context, leaving room for the reply", () => {
+    expect(loadConfig({ TABLE_PASSWORD: "x", OLLAMA_NUM_CTX: "8192" })).toMatchObject({ ollamaNumCtx: 8192, promptBudgetTokens: 6144 });
+    expect(loadConfig({ TABLE_PASSWORD: "x", OLLAMA_NUM_CTX: "8192", PROMPT_BUDGET_TOKENS: "5000" }).promptBudgetTokens).toBe(5000);
+    expect(() => loadConfig({ TABLE_PASSWORD: "x", OLLAMA_NUM_CTX: "8192", PROMPT_BUDGET_TOKENS: "7000" })).toThrow(/room for the reply/);
+    expect(() => loadConfig({ TABLE_PASSWORD: "x", OLLAMA_NUM_CTX: "1000" })).toThrow(/OLLAMA_NUM_CTX/);
   });
 
   it("rejects a bad port or budget", () => {

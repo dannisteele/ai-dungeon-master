@@ -61,6 +61,12 @@ Players can send a bug report or an idea from the **Feedback** button (Tavern an
 
 With no token set, the button doesn't appear. Tokens expire: when sending starts failing with "Couldn't send that just now", make a new one.
 
+## Making the DM faster
+
+How long a turn takes depends mostly on whether the whole model fits in the graphics card's memory. Part of that memory goes on how much story the DM holds in mind at once (`OLLAMA_NUM_CTX`, default 16384). On a card with little memory (say 6 GB), lowering it can let the whole model fit, which is much faster.
+
+To measure, open a terminal in the game folder and run `npm run bench` (`npm.cmd run bench` on Windows; close the game first). It tries a few sizes and prints, for each, how much of the model fits on the card and roughly how long a turn takes. Put the size you like in `.env` as `OLLAMA_NUM_CTX=8192`, for example, and restart. Lower sizes mean the DM remembers fewer recent turns word for word; it still has the story-so-far summary.
+
 ## Keeping it private
 
 The server only answers devices on private network addresses, and asks for the table password. Your router blocks the internet from reaching it unless you've set up **port forwarding** for this port. Check your router's admin page and make sure nothing forwards to port 3000.

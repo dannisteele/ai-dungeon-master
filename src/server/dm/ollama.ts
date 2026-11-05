@@ -23,7 +23,7 @@ export interface ChatClient {
 
 export class OllamaError extends Error {}
 
-export function createOllamaClient(opts: { url: string; model: string; keepAlive: string; fetchImpl?: typeof fetch }): ChatClient {
+export function createOllamaClient(opts: { url: string; model: string; keepAlive: string; numCtx?: number; fetchImpl?: typeof fetch }): ChatClient {
   const fetchImpl = opts.fetchImpl ?? fetch;
   let model = opts.model;
 
@@ -62,7 +62,7 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
       try {
         const res = await raceTimeout(post("/api/chat", {
           model, messages, format, stream: true, think: false, keep_alive: opts.keepAlive,
-          options: { temperature: 0.8, num_ctx: 16384 },
+          options: { temperature: 0.8, num_ctx: opts.numCtx ?? 16384 },
         }, controller.signal), firstTokenTimeoutMs);
         if (!res.body) throw new OllamaError("Ollama sent an empty response");
         const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
