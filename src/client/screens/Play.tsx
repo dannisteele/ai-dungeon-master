@@ -5,6 +5,7 @@ import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
 import { FeedbackPanel } from "../components/FeedbackPanel";
 import { RecapPanel } from "../components/RecapPanel";
+import { SettingsPanel } from "../components/SettingsPanel";
 import { Story } from "../components/Story";
 import { useFeedbackEnabled } from "../lib/feedback";
 import { getMyCharacter } from "../lib/storage";
@@ -16,6 +17,7 @@ export function Play({ campaignId }: { campaignId: number }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const feedbackEnabled = useFeedbackEnabled();
   const [diceQueue, setDiceQueue] = useState<StoredRoll[]>([]);
   const lastSeenRoll = useRef<number | null>(null);
@@ -68,6 +70,7 @@ export function Play({ campaignId }: { campaignId: number }) {
           </div>
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
           <button className="btn btn-ghost header-btn" aria-label="Story so far" onClick={() => setRecapOpen(true)}><span className="label-long">Story so far</span><span className="label-short">Recap</span></button>
+          <button className="btn btn-ghost header-btn" aria-label="Table settings" onClick={() => setSettingsOpen(true)}><span className="label-long">Settings</span><span className="label-short">⚙</span></button>
           {feedbackEnabled && <button className="btn btn-ghost header-btn" aria-label="Send feedback" onClick={() => setFeedbackOpen(true)}><span className="label-long">Feedback</span><span className="label-short">💬</span></button>}
           <button className="btn btn-ghost header-btn sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
@@ -80,6 +83,7 @@ export function Play({ campaignId }: { campaignId: number }) {
       </div>
       <CharacterSheet snapshot={snapshot} me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />
       {recapOpen && <RecapPanel campaignId={campaignId} onClose={() => setRecapOpen(false)} />}
+      {settingsOpen && <SettingsPanel campaign={snapshot.campaign} onClose={() => setSettingsOpen(false)} />}
       {feedbackOpen && <FeedbackPanel screen="play" campaignId={campaignId} characterId={myId} onClose={() => setFeedbackOpen(false)} />}
       {current && (
         <DiceOverlay key={current.id} roll={current} name={nameOf(snapshot.characters, current.characterId)}

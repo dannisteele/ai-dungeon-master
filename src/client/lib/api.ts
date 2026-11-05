@@ -1,4 +1,5 @@
 import type {
+  DiceMode, Realism,
   AdventureInfo, Campaign, CampaignSummary, Character, KitItem, NewCampaignRequest, NewCharacterRequest, Preset, Snapshot, Ability,
 } from "../../shared/types";
 
@@ -35,6 +36,8 @@ export const api = {
   presets: () => request<{ presets: Preset[]; adventures: AdventureInfo[] }>("GET", "/api/presets"),
   campaigns: () => request<{ campaigns: CampaignSummary[] }>("GET", "/api/campaigns"),
   createCampaign: (body: NewCampaignRequest) => request<{ campaign: Campaign }>("POST", "/api/campaigns", body),
+  updateSettings: (id: number, patch: { dice?: DiceMode; realism?: Realism }) =>
+    request<{ campaign: Campaign }>("PATCH", `/api/campaigns/${id}/settings`, patch),
   renameCampaign: (id: number, title: string) => request<{ campaign: Campaign }>("PATCH", `/api/campaigns/${id}`, { title }),
   deleteCampaign: (id: number) => request<{ ok: true }>("DELETE", `/api/campaigns/${id}`),
   snapshot: (id: number) => request<{ snapshot: Snapshot }>("GET", `/api/campaigns/${id}`),

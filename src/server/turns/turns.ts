@@ -227,9 +227,12 @@ export class TurnService {
   }
 
   private runAdjudicate(id: number): Promise<void> {
+    // Story mode: no dice, so nothing to adjudicate; the DM decides outcomes while narrating.
+    if (this.campaign(id).dice === "off") return this.runResolve(id);
     return this.runPhase(id, "adjudicating", async () => {
       const { store, dm } = this.deps;
       const c = this.campaign(id);
+      const maxChecks = c.dice === "big" ? 1 : Infinity;
       const chars = store.getCharacters(id);
       const status = this.status(c);
       const drafts = await dm.adjudicate(
@@ -241,7 +244,7 @@ export class TurnService {
       store.transaction(() => {
         for (const d of drafts) {
           const ch = findCharacterByName(chars, d.character);
-          if (!ch || !acting.has(ch.id) || chosen.has(ch.id)) continue;
+          if (!ch || !acting.has(ch.id) || chosen.has(ch.id) || chosen.size >= maxChecks) continue;
           chosen.add(ch.id);
           const dc = Math.min(25, Math.max(5, Math.round(Number.isFinite(d.dc) ? d.dc : 15)));
           store.appendEvent(id, c.roundNumber, { type: "check_request", characterId: ch.id, ability: d.ability, dc, reason: d.reason.slice(0, 200) });

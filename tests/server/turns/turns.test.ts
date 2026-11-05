@@ -174,6 +174,45 @@ describe("TurnService", () => {
     expect(checks).toEqual([expect.objectContaining({ characterId: chars[0].id, ability: "STR", dc: 25, reason: "first" })]);
   });
 
+  it("dice off: resolves without adjudicating", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    store.updateCampaign(id, { dice: "off" });
+    dm.nextChecks = [{ character: "Corvin", ability: "STR", dc: 14, reason: "heavy gate" }];
+    await turns.submitAction(id, chars[0].id, "I force the gate");
+    expect(dm.adjudicateCalls).toEqual([]);
+    expect(dm.resolveCalls).toHaveLength(1);
+    expect(dm.resolveCalls[0].rolls).toEqual([]);
+    expect(store.getCampaign(id)!.roundState).toBe("collecting");
+  });
+
+  it("dice big: keeps at most one check a round", async () => {
+    const { store, dm, turns, id, chars } = await begun("party", ["Corvin", "Wren"]);
+    store.updateCampaign(id, { dice: "big" });
+    dm.nextChecks = [
+      { character: "Corvin", ability: "STR", dc: 14, reason: "heavy gate" },
+      { character: "Wren", ability: "DEX", dc: 12, reason: "slip past" },
+    ];
+    await turns.submitAction(id, chars[0].id, "I force the gate");
+    await turns.submitAction(id, chars[1].id, "I slip past");
+    const checks = store.getEvents(id, { fromRound: 1, toRound: 1 }).filter((e) => e.type === "check_request");
+    expect(checks).toHaveLength(1);
+    expect(checks[0]).toMatchObject({ characterId: chars[0].id, reason: "heavy gate" });
+  });
+
+  it("switching dice off while rolls are pending still takes the roll this round", async () => {
+    const { store, dm, turns, id, chars, setDie } = await begun("solo", ["Corvin"]);
+    dm.nextChecks = [{ character: "Corvin", ability: "STR", dc: 14, reason: "heavy gate" }];
+    await turns.submitAction(id, chars[0].id, "I force the gate");
+    expect(store.getCampaign(id)!.roundState).toBe("awaiting_rolls");
+    store.updateCampaign(id, { dice: "off" });
+    setDie(15);
+    await turns.roll(id, chars[0].id);
+    expect(dm.resolveCalls[0].rolls).toHaveLength(1);
+    expect(store.getCampaign(id)!.roundState).toBe("collecting");
+    await turns.submitAction(id, chars[0].id, "I walk on");
+    expect(dm.adjudicateCalls).toHaveLength(1);
+  });
+
   it("a party member can roll for someone else", async () => {
     const { store, dm, turns, id, chars } = await begun();
     dm.nextChecks = [{ character: "Wren", ability: "DEX", dc: 10, reason: "jump" }];

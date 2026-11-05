@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ABILITIES, AI_PHASES, REALISMS, type AdventureOutline } from "../../shared/types";
+import { ABILITIES, AI_PHASES, DICE_MODES, REALISMS, type AdventureOutline } from "../../shared/types";
 import { campaignInputFrom, PRESETS, settingLabel } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
@@ -35,6 +35,8 @@ export const NewCharacterSchema = z.object({
 
 const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string().trim().min(1).max(40), concept: z.string().trim().min(1).max(120) });
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
+const SettingsSchema = z.object({ dice: z.enum(DICE_MODES).optional(), realism: z.enum(REALISMS).optional() })
+  .refine((v) => v.dice !== undefined || v.realism !== undefined, { message: "Nothing to change." });
 const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
 
@@ -72,6 +74,8 @@ export interface ApiDeps {
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
   const { store, rules, dm, chat, turns, adventures, feedback, version, updates } = deps;
   const bad = (error: z.ZodError) => ({ error: z.prettifyError(error) });
+  const dmBusy = () => store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
+  const midSentence = { error: "The Dungeon Master is mid-sentence. Try again once the story settles." };
 
   app.get("/api/presets", async () => ({
     presets: PRESETS,
@@ -100,6 +104,18 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const parsed = RenameSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(bad(parsed.error));
     store.updateCampaign(id, { title: parsed.data.title });
+    turns.broadcastSnapshot(id);
+    return { campaign: store.getCampaign(id) };
+  });
+
+  app.patch<{ Params: { id: string } }>("/api/campaigns/:id/settings", async (req, reply) => {
+    const id = Number(req.params.id);
+    const campaign = store.getCampaign(id);
+    if (!campaign) return reply.code(404).send({ error: "No such campaign." });
+    const parsed = SettingsSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    if ((AI_PHASES as readonly string[]).includes(campaign.roundState)) return reply.code(409).send(midSentence);
+    store.updateCampaign(id, parsed.data);
     turns.broadcastSnapshot(id);
     return { campaign: store.getCampaign(id) };
   });
@@ -176,8 +192,6 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     }
   });
 
-  const dmBusy = () => store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
-  const midSentence = { error: "The Dungeon Master is mid-sentence. Try again once the story settles." };
 
   app.post("/api/pack-up", async (_req, reply) => {
     if (dmBusy()) return reply.code(409).send(midSentence);
