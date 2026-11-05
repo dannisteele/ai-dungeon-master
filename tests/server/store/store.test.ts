@@ -149,4 +149,64 @@ describe("store", () => {
     store.setSetting("ollamaModel", "b");
     expect(store.getSetting("ollamaModel")).toBe("b");
   });
+
+  describe("people", () => {
+    const setup = () => {
+      store = createStore(":memory:");
+      return store.createCampaign({ title: "T", mode: "solo", setting: "s", pitch: "", outline: null }).id;
+    };
+
+    it("keeps people who leave the scene, as not present", () => {
+      const id = setup();
+      store.saveNpcs(id, [{ name: "Mrs Bell", attitude: "friendly", condition: "unhurt" }, { name: "Guard", attitude: "wary", condition: "unhurt" }], 1);
+      store.saveNpcs(id, [{ name: "Guard", attitude: "hostile", condition: "wounded" }], 2);
+      expect(store.getNpcs(id)).toEqual([{ name: "Guard", attitude: "hostile", condition: "wounded" }]);
+      expect(store.getPeople(id)).toEqual([
+        expect.objectContaining({ name: "Guard", present: true, attitude: "hostile", lastSeenRound: 2 }),
+        expect.objectContaining({ name: "Mrs Bell", present: false, attitude: "friendly", lastSeenRound: 1 }),
+      ]);
+    });
+
+    it("treats names differing only by case or spaces as one person", () => {
+      const id = setup();
+      store.saveNpcs(id, [{ name: "Mrs Bell", attitude: "friendly", condition: "unhurt" }], 1);
+      store.saveNpcs(id, [{ name: " mrs bell ", attitude: "wary", condition: "unhurt" }], 2);
+      expect(store.getPeople(id)).toHaveLength(1);
+      expect(store.getPeople(id)[0]).toMatchObject({ name: "Mrs Bell", attitude: "wary" });
+      expect(store.updatePerson(id, "MRS BELL", { notes: "My aunt." })).toBe(true);
+      expect(store.getPeople(id)[0].notes).toBe("My aunt.");
+    });
+
+    it("stores the DM's about, but never over a player-edited one", () => {
+      const id = setup();
+      store.saveNpcs(id, [{ name: "Bell", attitude: "friendly", condition: "unhurt", about: "The baker." }], 1);
+      expect(store.getPeople(id)[0].about).toBe("The baker.");
+      store.saveNpcs(id, [{ name: "Bell", attitude: "friendly", condition: "unhurt" }], 2);
+      expect(store.getPeople(id)[0].about).toBe("The baker.");
+      store.updatePerson(id, "Bell", { about: "My aunt, the baker.", aboutEdited: true });
+      store.saveNpcs(id, [{ name: "Bell", attitude: "wary", condition: "unhurt", about: "A stranger." }], 3);
+      store.setPersonAbout(id, "Bell", "Also a stranger.");
+      expect(store.getPeople(id)[0]).toMatchObject({ about: "My aunt, the baker.", aboutEdited: true, attitude: "wary" });
+      store.updatePerson(id, "Bell", { aboutEdited: false });
+      store.setPersonAbout(id, "Bell", "Her aunt, the baker, now wary.");
+      expect(store.getPeople(id)[0].about).toBe("Her aunt, the baker, now wary.");
+    });
+
+    it("reports unknown people, and cascades on delete", () => {
+      const id = setup();
+      expect(store.updatePerson(id, "Nobody", { notes: "x" })).toBe(false);
+      store.setPersonAbout(id, "Nobody", "x");
+      store.saveNpcs(id, [{ name: "Bell", attitude: "friendly", condition: "unhurt" }], 1);
+      store.deleteCampaign(id);
+      expect(store.getPeople(id)).toEqual([]);
+    });
+  });
+
+  it("stores realism, dice and the pinned summary on campaigns", () => {
+    store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "solo", setting: "s", pitch: "", outline: null, realism: "grounded", dice: "big" });
+    expect(c).toMatchObject({ realism: "grounded", dice: "big" });
+    store.updateCampaign(c.id, { dice: "off", realism: "fantastical", pinnedSummary: "Mine." });
+    expect(store.getCampaign(c.id)).toMatchObject({ dice: "off", realism: "fantastical", pinnedSummary: "Mine." });
+  });
 });
