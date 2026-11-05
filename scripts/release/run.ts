@@ -10,7 +10,8 @@ import { bumpFor, commitKind, nextVersion, parseFirstParent, plainTitle, prNumbe
 const dryRun = process.argv.includes("--dry-run");
 const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { encoding: "utf8" }).trim();
 
-const lastTag = run("git", ["describe", "--tags", "--abbrev=0", "--match", "v*"]);
+// Plain release tags only (v1.2.3), not e.g. v1.2.3-test.
+const lastTag = run("git", ["describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", "--exclude", "*-*"]);
 const head = run("git", ["rev-parse", "HEAD"]);
 const entries = parseFirstParent(run("git", ["log", "--first-parent", "--format=%H%x1f%P%x1f%s%x1e", `${lastTag}..HEAD`])).reverse();
 
