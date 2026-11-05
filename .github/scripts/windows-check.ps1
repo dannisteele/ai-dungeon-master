@@ -65,5 +65,37 @@ Check "update.ps1-style stop leaves the port free" {
   -not (Get-NetTCPConnection -LocalPort 3999 -State Listen -ErrorAction SilentlyContinue)
 }
 
+# 4. A real update, end to end: a player's copy on release v98.0.0, a newer v99.0.0 published,
+#    then update.ps1 answered "y". (Run from a local "GitHub", so no release notes are found.)
+$work = Join-Path $env:RUNNER_TEMP "update-e2e"
+$origin = Join-Path $work "origin"
+$player = Join-Path $work "player"
+if (Test-Path $work) { Remove-Item -Recurse -Force $work }
+New-Item -ItemType Directory $work | Out-Null
+$ErrorActionPreference = "Continue"
+git clone --quiet $repo $origin
+git -C $origin checkout --quiet -B main
+git -C $origin tag v98.0.0
+git clone --quiet $origin $player
+Add-Content (Join-Path $origin "README.md") "`nUpdate test."
+git -C $origin -c user.name=ci -c user.email=ci@example.com commit --quiet -am "fix: pretend fix"
+git -C $origin tag v99.0.0
+[IO.File]::WriteAllText((Join-Path $player ".env"), "TABLE_PASSWORD=`"x`"`nPORT=3998`n", (New-Object Text.UTF8Encoding $false))
+New-Item -ItemType Directory (Join-Path $player "data") | Out-Null
+Set-Content (Join-Path $player "data\game.sqlite") "pretend saves"
+$env:DM_UPDATE_NO_START = "1"
+$out = "y" | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $player "windows\update.ps1") 2>&1 | Out-String
+$code = $LASTEXITCODE
+$again = "" | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $player "windows\update.ps1") 2>&1 | Out-String
+$ErrorActionPreference = "Stop"
+Write-Host $out
+Check "update exits cleanly" { $code -eq 0 }
+Check "update lists what's new since v98.0.0" { $out -match "You have v98\.0\.0" -and $out -match "v99\.0\.0" }
+Check "player is now on v99.0.0" { (git -C $player describe --tags) -eq "v99.0.0" }
+Check "saves were backed up first" { @(Get-ChildItem (Join-Path $player "data\backups\*\game.sqlite")).Count -eq 1 }
+Check "game was rebuilt" { Test-Path (Join-Path $player "dist\client\index.html") }
+Check "no updating marker left behind" { -not (Test-Path (Join-Path $player ".updating")) }
+Check "second run says up to date" { $again -match "up to date! \(v99\.0\.0\)" }
+
 if ($failures) { Write-Host "$failures check(s) failed"; exit 1 }
 Write-Host "All Windows checks passed"
