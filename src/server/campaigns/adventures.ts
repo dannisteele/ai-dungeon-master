@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import type { AdventureOutline } from "../../shared/types";
+import { REALISMS, type AdventureOutline } from "../../shared/types";
 
 const AdventureSchema = z.object({
   id: z.string().min(1), title: z.string().min(1), setting: z.string().min(1), pitch: z.string().min(1),
   goal: z.string().min(1), villain: z.string().min(1), locations: z.array(z.string()).min(1), beats: z.array(z.string()).min(1),
+  realism: z.enum(REALISMS).default("fantastical"),
 }) satisfies z.ZodType<AdventureOutline>;
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), "adventures");

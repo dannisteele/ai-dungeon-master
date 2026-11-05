@@ -66,9 +66,10 @@ describe("API", () => {
     expect(body.presets.map((p: { id: string }) => p.id)).toContain("gothic-horror");
     expect(body.presets.map((p: { id: string }) => p.id)).toContain("victorian-civil-service");
     expect(body.adventures).toEqual([
-      expect.objectContaining({ id: "drowned-chapel", title: "The Drowned Chapel" }),
-      expect.objectContaining({ id: "misfiled-petition", title: "The Misfiled Petition" }),
+      expect.objectContaining({ id: "drowned-chapel", title: "The Drowned Chapel", realism: "fantastical" }),
+      expect.objectContaining({ id: "misfiled-petition", title: "The Misfiled Petition", realism: "grounded" }),
     ]);
+    expect(body.presets.find((p: { id: string }) => p.id === "victorian-civil-service").realism).toBe("grounded");
   });
 
   it("creates a campaign from a preset, pitch or adventure", async () => {

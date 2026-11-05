@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { KitItem } from "../../shared/types";
+import type { KitItem, Realism } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
 import type { DmContext, RoundTranscript } from "./context";
 import { NarrationExtractor } from "./narrationStream";
@@ -22,7 +22,7 @@ export interface DungeonMaster {
   resolve(ctx: DmContext, input: ResolveInput, stream: StreamHandlers): Promise<ResolveOutput>;
   opening(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
   revive(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
-  startingKit(input: { name: string; concept: string; setting: string }): Promise<KitItem[]>;
+  startingKit(input: { name: string; concept: string; setting: string; realism: Realism }): Promise<KitItem[]>;
   summarise(oldSummary: string, rounds: RoundTranscript[]): Promise<string>;
 }
 

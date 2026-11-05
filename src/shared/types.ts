@@ -57,6 +57,7 @@ export interface AdventureOutline {
   villain: string;
   locations: string[];
   beats: string[];
+  realism: Realism;
 }
 
 export interface Campaign {
@@ -154,13 +155,14 @@ export type ClientMsg =
   | { t: "retry" }
   | { t: "revive" };
 
-export interface Preset { id: string; name: string; blurb: string; setting: string }
-export interface AdventureInfo { id: string; title: string; pitch: string }
+export interface Preset { id: string; name: string; blurb: string; setting: string; realism: Realism }
+export interface AdventureInfo { id: string; title: string; pitch: string; realism: Realism }
 export interface KitItem { name: string; description: string }
 
 export type CampaignSource =
   | { kind: "preset"; presetId: string }
-  | { kind: "pitch"; pitch: string }
+  /** realism defaults to grounded: players' own pitches have tended to be everyday stories. */
+  | { kind: "pitch"; pitch: string; realism?: Realism }
   | { kind: "adventure"; adventureId: string };
 
 export interface NewCampaignRequest { mode: Mode; title?: string; source: CampaignSource }

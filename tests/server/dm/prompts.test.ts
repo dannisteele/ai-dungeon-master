@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DmContext } from "../../../src/server/dm/context";
-import { adjudicateTask, buildMessages, estimateTokens, partyBlock, resolveTask, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
+import { adjudicateTask, buildMessages, campaignBlock, estimateTokens, kitMessages, partyBlock, resolveTask, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
 import { toFormat, resolveFormatSchema, AdjudicateSchema } from "../../../src/server/dm/schemas";
 import { lightRules } from "../../../src/server/rules/engine";
 import type { Campaign, Character } from "../../../src/shared/types";
 
 const campaign: Campaign = {
   id: 1, title: "The Drowned Chapel", mode: "party", setting: "Gothic fantasy", pitch: "A bell rings at night",
-  outline: { id: "dc", title: "The Drowned Chapel", setting: "Gothic", pitch: "p", goal: "Silence the bell", villain: "Sister Ambrel", locations: ["Nave"], beats: ["Arrive"] },
+  outline: { id: "dc", title: "The Drowned Chapel", setting: "Gothic", pitch: "p", goal: "Silence the bell", villain: "Sister Ambrel", locations: ["Nave"], beats: ["Arrive"], realism: "fantastical" as const },
   sceneTitle: "Fenwick", summary: "The party arrived in Fenwick.", pinnedSummary: "", realism: "fantastical", dice: "normal", roundState: "collecting", roundNumber: 3, stalledPhase: null, createdAt: "", updatedAt: "",
 };
 const corvin: Character = {
@@ -121,5 +121,35 @@ describe("prompts", () => {
     const t = reviveTask();
     expect(t).toContain("The whole party has fallen.");
     expect(t).toContain("Do not add heal ops: the app restores everyone to half health.");
+  });
+});
+
+describe("grounded or fantastical", () => {
+  it("a grounded DM is told nothing impossible happens, except what the players establish", () => {
+    const grounded = systemPrompt(lightRules, "grounded");
+    expect(grounded).toContain("no magic, no supernatural events");
+    expect(grounded).toContain("players' pitch or notes");
+    expect(grounded).not.toContain("danger, mystery");
+    expect(grounded).not.toContain("Keep magic items");
+    expect(grounded).toContain("Items are ordinary, realistic things.");
+  });
+
+  it("a fantastical DM gets today's prompt", () => {
+    const fantastical = systemPrompt(lightRules, "fantastical");
+    expect(fantastical).toContain("with danger, mystery and some humour");
+    expect(fantastical).toContain("Keep magic items, adjust_stat and level_up rare");
+    expect(fantastical).not.toContain("no magic, no supernatural events");
+  });
+
+  it("names the tone in the campaign block", () => {
+    expect(campaignBlock({ ...campaign, realism: "grounded" })).toContain("Tone: grounded (realistic, nothing impossible)");
+    expect(campaignBlock({ ...campaign, realism: "fantastical" })).toContain("Tone: fantastical");
+  });
+
+  it("packs grounded kits with everyday things", () => {
+    const user = (r: "grounded" | "fantastical") => kitMessages({ name: "Ann", concept: "barista", setting: "Leeds", realism: r })[1].content;
+    expect(user("grounded")).toContain("everyday items");
+    expect(user("grounded")).not.toContain("no powerful magic");
+    expect(user("fantastical")).toContain("no powerful magic");
   });
 });

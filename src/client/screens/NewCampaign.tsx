@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AdventureInfo, CampaignSource, Mode, Preset } from "../../shared/types";
+import type { AdventureInfo, CampaignSource, Mode, Preset, Realism } from "../../shared/types";
 import { api } from "../lib/api";
 import { go } from "../lib/router";
 
@@ -12,6 +12,7 @@ export function NewCampaign() {
   const [presetId, setPresetId] = useState("");
   const [adventureId, setAdventureId] = useState("");
   const [pitch, setPitch] = useState("");
+  const [realism, setRealism] = useState<Realism>("grounded");
   const [title, setTitle] = useState("");
   const [data, setData] = useState<{ presets: Preset[]; adventures: AdventureInfo[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export function NewCampaign() {
     }).catch((e) => setError(e.message));
   }, []);
 
-  const source: CampaignSource = kind === "preset" ? { kind, presetId } : kind === "adventure" ? { kind, adventureId } : { kind, pitch };
+  const source: CampaignSource = kind === "preset" ? { kind, presetId } : kind === "adventure" ? { kind, adventureId } : { kind, pitch, realism };
   const ready = kind === "pitch" ? pitch.trim().length >= 10 : kind === "preset" ? !!presetId : !!adventureId;
 
   async function create() {
@@ -70,8 +71,18 @@ export function NewCampaign() {
           </div>
         )}
         {kind === "pitch" && (
-          <textarea className="input" rows={4} maxLength={1000} value={pitch} onChange={(e) => setPitch(e.target.value)}
-            placeholder="e.g. Two smugglers wake on a ghost ship drifting toward a city that vanished a hundred years ago." />
+          <>
+            <textarea className="input" rows={4} maxLength={1000} value={pitch} onChange={(e) => setPitch(e.target.value)}
+              placeholder="e.g. Two smugglers wake on a ghost ship drifting toward a city that vanished a hundred years ago." />
+            <div className="row" role="radiogroup" aria-label="Kind of story">
+              <button className="btn" role="radio" aria-checked={realism === "grounded"} aria-pressed={realism === "grounded"} onClick={() => setRealism("grounded")}>
+                Grounded: real life, no magic
+              </button>
+              <button className="btn" role="radio" aria-checked={realism === "fantastical"} aria-pressed={realism === "fantastical"} onClick={() => setRealism("fantastical")}>
+                Fantastical: magic and the impossible allowed
+              </button>
+            </div>
+          </>
         )}
         {kind === "adventure" && (
           <div className="grid-cards">
