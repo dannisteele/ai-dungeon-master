@@ -1,7 +1,7 @@
 import { formatModifier, modifier } from "../../shared/abilities";
 import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type DiceMode, type Person, type Realism } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
-import type { DmContext, RoundTranscript } from "./context";
+import { memoryText, type DmContext, type RoundTranscript } from "./context";
 import type { ChatMessage } from "./ollama";
 
 export interface ActionInput { character: string; text: string }
@@ -216,17 +216,27 @@ export function kitMessages(input: { name: string; concept: string; setting: str
   ];
 }
 
-export function summaryMessages(oldSummary: string, rounds: RoundTranscript[], people: { name: string; about: string }[] = []): ChatMessage[] {
+export function summaryMessages(
+  oldSummary: string, rounds: RoundTranscript[], people: { name: string; about: string }[] = [], pinned = "",
+): ChatMessage[] {
   return [
     { role: "system", content: "You keep the story-so-far notes for a tabletop roleplaying campaign. Always reply with a single JSON object and nothing else." },
     {
       role: "user",
       content: [
-        `Story so far:\n${oldSummary || "(nothing yet)"}`,
+        ...(pinned
+          ? [
+            `The players wrote the earlier story themselves (for context only; don't repeat or contradict it):\n${pinned}`,
+            "",
+            `What you've summarised since then:\n${oldSummary || "(nothing yet)"}`,
+          ]
+          : [`Story so far:\n${oldSummary || "(nothing yet)"}`]),
         "",
         `New events:\n${rounds.map((r) => r.lines.join("\n")).join("\n\n")}`,
         "",
-        "Rewrite the story-so-far in at most 300 words. Keep names, places, unresolved threads, promises, debts and important items.",
+        pinned
+          ? "Rewrite what has happened since the players' story in at most 300 words, summarising only events after it. Keep names, places, unresolved threads, promises, debts and important items."
+          : "Rewrite the story-so-far in at most 300 words. Keep names, places, unresolved threads, promises, debts and important items.",
         ...(people.length
           ? [
             "",
@@ -248,7 +258,7 @@ export function buildMessages(ctx: DmContext, rules: RulesEngine, task: string, 
     partyBlock(ctx.characters),
     nearbyBlock(ctx.people),
     metBlock(ctx.people),
-    ctx.campaign.summary ? `Story so far:\n${ctx.campaign.summary}` : "",
+    memoryText(ctx.campaign) ? `Story so far:\n${memoryText(ctx.campaign)}` : "",
     rounds.length ? `Recent rounds:\n${rounds.map((r) => r.lines.join("\n")).join("\n\n")}` : "",
     task,
   ].filter(Boolean).join("\n\n");

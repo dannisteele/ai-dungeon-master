@@ -45,7 +45,7 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
   ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest } }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
-  const req = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
+  const req = (method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", url: string, payload?: object) =>
     app.inject({ method, url, payload, remoteAddress: LAN, headers: { cookie } });
   return { req, cookie };
 }
@@ -180,11 +180,24 @@ describe("API", () => {
   it("writes a story-so-far recap on request", async () => {
     const { req } = await start(fakeDm({ summarise: async () => ({ summary: "They wandered in the fog.", people: [] }) }));
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
-    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "", throughRound: 0 });
+    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "", throughRound: 0, editedThrough: null });
     store.appendEvent(campaign.id, 1, { type: "narration", text: "Fog everywhere." });
     store.updateCampaign(campaign.id, { roundState: "collecting", roundNumber: 2 });
-    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "They wandered in the fog.", throughRound: 1 });
+    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "They wandered in the fog.", throughRound: 1, editedThrough: null });
     expect((await req("POST", "/api/campaigns/999/recap")).statusCode).toBe(404);
+  });
+
+  it("lets players rewrite the story so far", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    const url = `/api/campaigns/${campaign.id}/summary`;
+    expect((await req("PUT", url, { summary: "We are cousins." })).json()).toEqual({ summary: "We are cousins.", throughRound: 0, editedThrough: 0 });
+    expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json().summary).toBe("We are cousins.");
+    expect((await req("PUT", url, { summary: "  " })).statusCode).toBe(400);
+    expect((await req("PUT", url, { summary: "x".repeat(4001) })).statusCode).toBe(400);
+    expect((await req("PUT", "/api/campaigns/999/summary", { summary: "x" })).statusCode).toBe(404);
+    store.updateCampaign(campaign.id, { roundState: "resolving" });
+    expect((await req("PUT", url, { summary: "x" })).statusCode).toBe(409);
   });
 
   it("returns 503 when the DM can't write the recap", async () => {

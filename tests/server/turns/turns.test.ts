@@ -22,6 +22,7 @@ class FakeDm implements DungeonMaster {
   summariseFailNext = false;
   summariseGate: Promise<void> | null = null;
   summaryPeopleIn: { name: string; about: string }[][] = [];
+  summaryCalls: { old: string; pinned: string }[] = [];
   nextSummaryPeople: { name: string; about: string }[] = [];
   onResolve: (() => void) | null = null;
 
@@ -55,8 +56,9 @@ class FakeDm implements DungeonMaster {
     return { narration: "You wake in a cell.", changes };
   }
   async startingKit() { return [{ name: "Rope", description: "30ft" }]; }
-  async summarise(_old: string, rounds: unknown[], people: { name: string; about: string }[] = []) {
+  async summarise(old: string, rounds: unknown[], people: { name: string; about: string }[] = [], pinned = "") {
     this.summaries++;
+    this.summaryCalls.push({ old, pinned });
     this.summaryPeopleIn.push(people);
     if (this.summariseGate) await this.summariseGate;
     if (this.summariseFailNext) { this.summariseFailNext = false; throw new Error("summary failed"); }
@@ -310,22 +312,22 @@ describe("TurnService", () => {
   describe("story-so-far recap", () => {
     it("returns nothing before any round has been played, without asking the DM", async () => {
       const { dm, turns, id } = await begun("solo", ["Corvin"]);
-      expect(await turns.recap(id)).toEqual({ summary: "", throughRound: 0 });
+      expect(await turns.recap(id)).toEqual({ summary: "", throughRound: 0, editedThrough: null });
       expect(dm.summaries).toBe(0);
     });
 
     it("summarises the played rounds, stores it, and reuses it until the story moves on", async () => {
       const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
       for (let i = 0; i < 3; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3, editedThrough: null });
       expect(store.getCampaign(id)!.summary).toBe("summary of 4 rounds");
       expect(store.getEvents(id).filter((e) => e.type === "summary")).toEqual([expect.objectContaining({ throughRound: 3 })]);
 
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 4 rounds", throughRound: 3, editedThrough: null });
       expect(dm.summaries).toBe(1);
 
       await turns.submitAction(id, chars[0].id, "act 3");
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 1 rounds", throughRound: 4 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 1 rounds", throughRound: 4, editedThrough: null });
       expect(dm.summaries).toBe(2);
     });
 
@@ -339,7 +341,7 @@ describe("TurnService", () => {
       await tick();
       expect(dm.summaries).toBe(1); // recap is waiting, not overlapping
       release();
-      expect(await pending).toEqual({ summary: "summary of 11 rounds", throughRound: 10 });
+      expect(await pending).toEqual({ summary: "summary of 11 rounds", throughRound: 10, editedThrough: null });
       expect(dm.summaries).toBe(1);
     });
 
@@ -348,7 +350,7 @@ describe("TurnService", () => {
       await turns.submitAction(id, chars[0].id, "act");
       dm.summariseFailNext = true;
       await expect(turns.recap(id)).rejects.toThrow("summary failed");
-      expect(await turns.recap(id)).toEqual({ summary: "summary of 2 rounds", throughRound: 1 });
+      expect(await turns.recap(id)).toEqual({ summary: "summary of 2 rounds", throughRound: 1, editedThrough: null });
     });
   });
 
@@ -473,6 +475,49 @@ describe("TurnService", () => {
     b.store.saveCharacter({ ...b.store.getCharacter(b.chars[0].id)!, hp: 0 });
     b.turns.recoverInterrupted();
     expect(b.store.getCampaign(b.id)!.roundState).toBe("collecting");
+  });
+
+  describe("editing the story so far", () => {
+    it("pins the player's text word for word and clears the DM's summary", async () => {
+      const { store, turns, id, chars } = await begun("solo", ["Corvin"]);
+      for (let i = 0; i < 3; i++) await turns.submitAction(id, chars[0].id, `act ${i}`);
+      await turns.recap(id);
+      expect(await turns.editSummary(id, "  Corvin never found the key.  ")).toEqual({ summary: "Corvin never found the key.", throughRound: 3, editedThrough: 3 });
+      expect(store.getCampaign(id)).toMatchObject({ pinnedSummary: "Corvin never found the key.", summary: "" });
+      expect(store.getEvents(id).filter((e) => e.type === "summary").at(-1)).toMatchObject({ edited: true, throughRound: 3 });
+    });
+
+    it("later summaries cover only what came after, shown under 'Since then'", async () => {
+      const { dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      await turns.submitAction(id, chars[0].id, "act");
+      await turns.editSummary(id, "Mine.");
+      await turns.submitAction(id, chars[0].id, "act again");
+      const recap = await turns.recap(id);
+      expect(recap).toEqual({ summary: "Mine.\n\nSince then:\nsummary of 1 rounds", throughRound: 2, editedThrough: 1 });
+      expect(dm.summaryCalls.at(-1)).toEqual({ old: "", pinned: "Mine." });
+    });
+
+    it("works before anything has happened", async () => {
+      const { store, turns, id } = setup("solo", ["Corvin"]);
+      expect(await turns.editSummary(id, "We are cousins who run a bakery.")).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: 0 });
+      expect(store.getCampaign(id)!.pinnedSummary).toBe("We are cousins who run a bakery.");
+      expect(await turns.recap(id)).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: 0 });
+    });
+
+    it("is refused while the DM is writing or summarising", async () => {
+      const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      store.updateCampaign(id, { roundState: "resolving" });
+      await expect(turns.editSummary(id, "x")).rejects.toThrow(GameError);
+      store.updateCampaign(id, { roundState: "collecting" });
+      await turns.submitAction(id, chars[0].id, "act");
+      let release!: () => void;
+      dm.summariseGate = new Promise((res) => { release = res; });
+      const pending = turns.recap(id);
+      await tick();
+      await expect(turns.editSummary(id, "x")).rejects.toThrow(GameError);
+      release();
+      await pending;
+    });
   });
 
   it("npc_gone keeps the card, and the DM is still told about them", async () => {

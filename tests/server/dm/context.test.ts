@@ -89,4 +89,25 @@ describe("transcripts", () => {
       { round: 1, lines: ["[NPC] Scarred Brute: hostile, badly hurt", "[NPC] Scarred Brute leaves"] },
     ]);
   });
+
+  it("after the players edit the story, the DM's recent rounds start after the edit", () => {
+    const store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });
+    for (let r = 0; r <= 7; r++) store.appendEvent(c.id, r, { type: "narration", text: `round ${r}` });
+    store.updateCampaign(c.id, { roundNumber: 8 });
+    expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    store.appendEvent(c.id, 6, { type: "summary", text: "auto", throughRound: 3 });
+    expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    store.appendEvent(c.id, 6, { type: "summary", text: "Mine.", throughRound: 5, edited: true });
+    expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([6, 7]);
+  });
+
+  it("an edit before anything happened still keeps round 1 onwards", () => {
+    const store = createStore(":memory:");
+    const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });
+    store.appendEvent(c.id, 0, { type: "summary", text: "Mine.", throughRound: 0, edited: true });
+    for (let r = 0; r <= 2; r++) store.appendEvent(c.id, r, { type: "narration", text: `round ${r}` });
+    store.updateCampaign(c.id, { roundNumber: 3 });
+    expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([1, 2]);
+  });
 });

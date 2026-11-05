@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DmContext } from "../../../src/server/dm/context";
 import { adjudicateTask, buildMessages, campaignBlock, estimateTokens, kitMessages, metBlock, partyBlock, resolveTask, summaryMessages, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
 import { toFormat, resolveFormatSchema, AdjudicateSchema } from "../../../src/server/dm/schemas";
+import { memoryText } from "../../../src/server/dm/context";
 import { lightRules } from "../../../src/server/rules/engine";
 import type { Campaign, Character, Person } from "../../../src/shared/types";
 
@@ -216,5 +217,26 @@ describe("people cards in the prompt", () => {
     expect(msgs[1].content).toContain("- Bell: Runs the bakery.");
     expect(msgs[1].content).toContain('"people"');
     expect(summaryMessages("", [], [])[1].content).not.toContain('"people"');
+  });
+});
+
+describe("the players' own story so far", () => {
+  it("memory is the pinned text, the DM's summary, or both under 'Since then'", () => {
+    expect(memoryText({ pinnedSummary: "", summary: "Auto." })).toBe("Auto.");
+    expect(memoryText({ pinnedSummary: "Mine.", summary: "" })).toBe("Mine.");
+    expect(memoryText({ pinnedSummary: "Mine.", summary: "Auto." })).toBe("Mine.\n\nSince then:\nAuto.");
+    expect(memoryText({ pinnedSummary: "", summary: "" })).toBe("");
+  });
+
+  it("the DM is given the pinned text and told to summarise only what's new", () => {
+    const msgs = summaryMessages("", [{ round: 4, lines: ["DM: x"] }], [], "Corvin never found the key.");
+    expect(msgs[1].content).toContain("The players wrote the earlier story themselves");
+    expect(msgs[1].content).toContain("Corvin never found the key.");
+    expect(summaryMessages("Old.", [], [])[1].content).not.toContain("The players wrote");
+  });
+
+  it("buildMessages shows the DM the players' version", () => {
+    const ctx: DmContext = { campaign: { ...campaign, pinnedSummary: "Mine.", summary: "Auto." }, characters: [corvin], people: [], recentRounds: [] };
+    expect(buildMessages(ctx, lightRules, "TASK", 12000)[1].content).toContain("Story so far:\nMine.\n\nSince then:\nAuto.");
   });
 });
