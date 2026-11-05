@@ -23,6 +23,7 @@ class FakeDm implements DungeonMaster {
   summariseGate: Promise<void> | null = null;
   summaryPeopleIn: { name: string; about: string }[][] = [];
   summaryCalls: { old: string; pinned: string }[] = [];
+  summaryRounds: number[][] = [];
   nextSummaryPeople: { name: string; about: string }[] = [];
   onResolve: (() => void) | null = null;
 
@@ -59,6 +60,7 @@ class FakeDm implements DungeonMaster {
   async summarise(old: string, rounds: unknown[], people: { name: string; about: string }[] = [], pinned = "") {
     this.summaries++;
     this.summaryCalls.push({ old, pinned });
+    this.summaryRounds.push((rounds as { round: number }[]).map((r) => r.round));
     this.summaryPeopleIn.push(people);
     if (this.summariseGate) await this.summariseGate;
     if (this.summariseFailNext) { this.summariseFailNext = false; throw new Error("summary failed"); }
@@ -497,11 +499,22 @@ describe("TurnService", () => {
       expect(dm.summaryCalls.at(-1)).toEqual({ old: "", pinned: "Mine." });
     });
 
-    it("works before anything has happened", async () => {
+    it("works before anything has happened, and the DM still sees its own opening", async () => {
       const { store, turns, id } = setup("solo", ["Corvin"]);
-      expect(await turns.editSummary(id, "We are cousins who run a bakery.")).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: 0 });
+      expect(await turns.editSummary(id, "We are cousins who run a bakery.")).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: -1 });
       expect(store.getCampaign(id)!.pinnedSummary).toBe("We are cousins who run a bakery.");
-      expect(await turns.recap(id)).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: 0 });
+      expect(await turns.recap(id)).toEqual({ summary: "We are cousins who run a bakery.", throughRound: 0, editedThrough: -1 });
+      await turns.begin(id);
+      expect(buildContext(store, id).recentRounds.map((r) => r.round)).toEqual([0]);
+    });
+
+    it("an edit after the opening keeps the replaced opening away from the summariser", async () => {
+      const { dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+      await turns.editSummary(id, "Mine.");
+      await turns.submitAction(id, chars[0].id, "act");
+      dm.summaryRounds = [];
+      await turns.recap(id);
+      expect(dm.summaryRounds.at(-1)).toEqual([1]);
     });
 
     it("is refused while the DM is writing or summarising", async () => {

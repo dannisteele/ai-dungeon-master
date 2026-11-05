@@ -112,16 +112,24 @@ function cappedBlock(heading: string, lines: string[], max: number): string {
   return out;
 }
 
-const cardText = (p: Person) =>
-  [p.about && `About: ${p.about}`, p.notes && `Player's notes: ${p.notes}`].filter(Boolean).join(" ");
+/**
+ * One person's line: `head` then the DM's description and the player's notes, within
+ * PERSON_LINE_MAX. The description is shortened first: the notes are the player's truth.
+ */
+function personLine(head: string, about: string, notes: string, aboutLabel: string): string {
+  const notesPart = notes ? ` Player's notes: ${notes}` : "";
+  const room = PERSON_LINE_MAX - head.length - notesPart.length - aboutLabel.length - 1;
+  const aboutPart = about && room > 20 ? ` ${aboutLabel}${cut(about, room)}` : "";
+  return cut(`${head}${aboutPart}${notesPart}`, PERSON_LINE_MAX);
+}
 
 /** Who is in the scene, with their cards. */
 export function nearbyBlock(people: Person[]): string {
   const here = people.filter((p) => p.present);
   if (here.length === 0) return "Nearby: nobody notable.";
   const lines = here.map((p) => {
-    const card = cardText(p);
-    return cut(`- ${p.name}: ${p.attitude}, ${p.condition}${card ? `. ${card}` : ""}`, PERSON_LINE_MAX);
+    const head = `- ${p.name}: ${p.attitude}, ${p.condition}`;
+    return p.about || p.notes ? personLine(`${head}.`, p.about, p.notes, "About: ") : head;
   });
   return cappedBlock("Nearby (authoritative):", lines, NEARBY_MAX);
 }
@@ -130,10 +138,9 @@ export function nearbyBlock(people: Person[]): string {
 export function metBlock(people: Person[]): string {
   const away = people.filter((p) => !p.present).slice(0, MET_PEOPLE_MAX);
   if (away.length === 0) return "";
-  const lines = away.map((p) => {
-    const card = [p.about, p.notes && `Player's notes: ${p.notes}`].filter(Boolean).join(" ");
-    return cut(`- ${p.name}: ${card || "(no description yet)"}`, PERSON_LINE_MAX);
-  });
+  const lines = away.map((p) => (p.about || p.notes
+    ? personLine(`- ${p.name}:`, p.about, p.notes, "")
+    : `- ${p.name}: (no description yet)`));
   return cappedBlock("People you have met (not here now):", lines, MET_MAX);
 }
 

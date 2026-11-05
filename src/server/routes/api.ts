@@ -137,9 +137,9 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     if ((AI_PHASES as readonly string[]).includes(campaign.roundState)) return reply.code(409).send(midSentence);
     const { about, notes, letDmUpdate } = parsed.data;
     // Editing the description locks it against the DM; "let the DM update this" unlocks it.
-    const found = store.updatePerson(id, req.params.name, {
-      about, notes, ...(about !== undefined ? { aboutEdited: true } : letDmUpdate ? { aboutEdited: false } : {}),
-    });
+    // Clearing it (an empty description) hands it back to the DM too, rather than locking it empty.
+    const lock = about !== undefined && about !== "" ? true : about === "" || letDmUpdate ? false : undefined;
+    const found = store.updatePerson(id, req.params.name, { about, notes, ...(lock === undefined ? {} : { aboutEdited: lock }) });
     if (!found) return reply.code(404).send({ error: "Nobody by that name." });
     turns.broadcastSnapshot(id);
     return { people: store.getPeople(id) };

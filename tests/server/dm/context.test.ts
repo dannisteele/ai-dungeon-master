@@ -102,12 +102,14 @@ describe("transcripts", () => {
     expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([6, 7]);
   });
 
-  it("an edit before anything happened still keeps round 1 onwards", () => {
+  it("an edit before anything happened keeps the opening; one after it drops the opening", () => {
     const store = createStore(":memory:");
     const c = store.createCampaign({ title: "T", mode: "solo", setting: "S", pitch: "", outline: null });
-    store.appendEvent(c.id, 0, { type: "summary", text: "Mine.", throughRound: 0, edited: true });
+    store.appendEvent(c.id, 0, { type: "summary", text: "Mine.", throughRound: -1, edited: true });
     for (let r = 0; r <= 2; r++) store.appendEvent(c.id, r, { type: "narration", text: `round ${r}` });
     store.updateCampaign(c.id, { roundNumber: 3 });
+    expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([0, 1, 2]);
+    store.appendEvent(c.id, 1, { type: "summary", text: "Mine again.", throughRound: 0, edited: true });
     expect(buildContext(store, c.id, 10).recentRounds.map((r) => r.round)).toEqual([1, 2]);
   });
 });

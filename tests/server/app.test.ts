@@ -158,6 +158,10 @@ describe("API", () => {
     expect(about.json().people[0]).toMatchObject({ about: "My aunt, the baker.", aboutEdited: true });
     const back = await req("PATCH", url("Mrs Bell"), { letDmUpdate: true });
     expect(back.json().people[0]).toMatchObject({ about: "My aunt, the baker.", aboutEdited: false });
+    await req("PATCH", url("Mrs Bell"), { about: "Mine." });
+    // Clearing the description hands it back to the DM rather than locking it empty.
+    const cleared = await req("PATCH", url("Mrs Bell"), { about: "" });
+    expect(cleared.json().people[0]).toMatchObject({ about: "", aboutEdited: false });
 
     expect((await req("PATCH", url("Mrs Bell"), { notes: "x".repeat(501) })).statusCode).toBe(400);
     expect((await req("PATCH", url("Mrs Bell"), {})).statusCode).toBe(400);
@@ -191,7 +195,7 @@ describe("API", () => {
     const { req } = await start();
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
     const url = `/api/campaigns/${campaign.id}/summary`;
-    expect((await req("PUT", url, { summary: "We are cousins." })).json()).toEqual({ summary: "We are cousins.", throughRound: 0, editedThrough: 0 });
+    expect((await req("PUT", url, { summary: "We are cousins." })).json()).toEqual({ summary: "We are cousins.", throughRound: 0, editedThrough: -1 });
     expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json().summary).toBe("We are cousins.");
     expect((await req("PUT", url, { summary: "  " })).statusCode).toBe(400);
     expect((await req("PUT", url, { summary: "x".repeat(4001) })).statusCode).toBe(400);

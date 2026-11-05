@@ -82,7 +82,8 @@ export function RecapPanel({ campaignId, onClose }: { campaignId: number; onClos
         {state.kind === "ready" && state.summary.trim() && (
           <p className="muted small" style={{ margin: 0 }}>
             {state.editedThrough === null ? `Up to round ${state.throughRound}`
-              : state.editedThrough === 0 ? "Written by you before round 1" : `Edited by you after round ${state.editedThrough}`}
+              : state.editedThrough < 0 ? "Written by you before the story began"
+                : state.editedThrough === 0 ? "Edited by you after the opening scene" : `Edited by you after round ${state.editedThrough}`}
           </p>
         )}
       </section>
