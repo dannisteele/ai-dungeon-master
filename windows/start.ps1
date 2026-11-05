@@ -25,7 +25,9 @@ try {
 Start-Job -ArgumentList $url -ScriptBlock {
   param($url)
   for ($i = 0; $i -lt 120; $i++) {
-    try { Invoke-WebRequest "$url/api/session" -UseBasicParsing -TimeoutSec 2 | Out-Null; Start-Process $url; return } catch { Start-Sleep -Seconds 1 }
+    curl.exe --silent --fail --output NUL --max-time 2 --noproxy "*" "$url/api/session"
+    if ($LASTEXITCODE -eq 0) { Start-Process $url; return }
+    Start-Sleep -Seconds 1
   }
 } | Out-Null
 

@@ -33,8 +33,12 @@ function Env-Value($name, $fallback) {
   return $fallback
 }
 
+# Is something answering at this address? Uses curl.exe (built into Windows 10/11) rather than
+# Invoke-WebRequest, which VPN/security software can block from reaching localhost, and skips
+# any proxy for the same reason.
 function Test-Url($url) {
-  try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2 | Out-Null; return $true } catch { return $false }
+  curl.exe --silent --fail --output NUL --max-time 2 --noproxy "*" $url
+  return ($LASTEXITCODE -eq 0)
 }
 
 # Start Ollama if it isn't answering yet. Prefer the tray app: a hidden console
