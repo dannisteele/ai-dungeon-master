@@ -76,6 +76,12 @@ npm run smoke        # plays 5 rounds against your real model and reports
 
 Add a prepared adventure by dropping a JSON file in `src/server/campaigns/adventures/` (copy `drowned-chapel.json`).
 
+## Versions and releases
+
+Every merge to `main` that adds a feature (`feat:` commits) or fixes something (`fix:`) becomes a new release automatically: CI tags it (`fix` bumps 1.2.**3**, `feat` bumps 1.**3**.0) and publishes a [release](../../releases) listing the merged PRs. Docs- or CI-only merges don't make a release. `npm run release:dry-run` shows what the next release would be.
+
+The Tavern footer shows the running version, and notes when a newer release is out.
+
 ## Moving to a Raspberry Pi or old laptop
 
 A Pi can host the website but is far too slow to run the model, so split them:

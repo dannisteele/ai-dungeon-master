@@ -13,7 +13,10 @@ export function Lobby() {
   const [packNote, setPackNote] = useState<string | null>(null);
   const [packing, setPacking] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [version, setVersion] = useState<{ version: string; latest: string | null; updateAvailable: boolean } | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
+
+  useEffect(() => { api.version().then(setVersion).catch(() => {}); }, []);
 
   useEffect(() => {
     const refetch = () => { api.campaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setError(e.message)); };
@@ -76,6 +79,12 @@ export function Lobby() {
         <p className="muted small" style={{ flex: 1, margin: 0 }}>{packNote ?? "Done for the evening? Free up the computer's memory."}</p>
         <button className="btn btn-ghost" onClick={packUp} disabled={packing}>{packing ? "Packing up…" : "🕯 Pack up for the night"}</button>
       </footer>
+      {version && (
+        <p className="muted small" style={{ margin: 0 }}>
+          Version {version.version}
+          {version.updateAvailable && <> · <span className="update-note">{version.latest} is out: run Check for Updates to get it.</span></>}
+        </p>
+      )}
       {feedbackOpen && <FeedbackPanel screen="lobby" onClose={() => setFeedbackOpen(false)} />}
     </main>
   );

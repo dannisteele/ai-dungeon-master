@@ -1,6 +1,6 @@
 {
   "name": "ai-dungeon-master",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -13,7 +13,8 @@
     "build": "vite build",
     "start": "tsx src/server/main.ts --production",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "release:dry-run": "tsx scripts/release/run.ts --dry-run"
   },
   "keywords": [],
   "author": "",

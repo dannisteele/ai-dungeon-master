@@ -31,7 +31,7 @@ afterEach(async () => {
   store?.close();
 });
 
-async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }, issues?: IssueFiler) {
+async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => { unloads++; }, issues?: IssueFiler, latest: string | null = null) {
   store = createStore(":memory:");
   unloads = 0;
   let model = "qwen3.6:27b";
@@ -40,7 +40,7 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
     getModel: () => model, setModel: (m) => { model = m; },
     installedModels: async () => ["qwen3.5:9b", "qwen3.6:27b", "llama3:8b"],
   };
-  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues }));
+  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest } }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
   const req = (method: "GET" | "POST", url: string, payload?: object) =>
@@ -179,6 +179,15 @@ describe("API", () => {
     const r = await req("POST", "/api/models", { model: "qwen3.5:9b" });
     expect(r.statusCode).toBe(409);
     expect((await req("GET", "/api/models")).json().current).toBe("qwen3.6:27b");
+  });
+
+  it("reports its version and whether a newer release is out", async () => {
+    const none = await start();
+    const v = (await none.req("GET", "/api/version")).json();
+    expect(v).toEqual({ version: "v1.0.0", latest: null, updateAvailable: false });
+    await app.close();
+    const newer = await start(fakeDm(), undefined, undefined, "v999.0.0");
+    expect((await newer.req("GET", "/api/version")).json()).toMatchObject({ latest: "v999.0.0", updateAvailable: true });
   });
 
   it("hides feedback when no GitHub token is set", async () => {
