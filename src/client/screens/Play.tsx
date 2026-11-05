@@ -3,8 +3,10 @@ import type { StoredRoll } from "../../shared/types";
 import { ActionBar } from "../components/ActionBar";
 import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
+import { FeedbackPanel } from "../components/FeedbackPanel";
 import { RecapPanel } from "../components/RecapPanel";
 import { Story } from "../components/Story";
+import { useFeedbackEnabled } from "../lib/feedback";
 import { getMyCharacter } from "../lib/storage";
 import { buildStory, eventsBeforeRoll, isRoll, nameOf } from "../lib/story";
 import { useGameSocket } from "../lib/useGameSocket";
@@ -13,6 +15,8 @@ export function Play({ campaignId }: { campaignId: number }) {
   const { snapshot, streaming, error, connected, send } = useGameSocket(campaignId);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackEnabled = useFeedbackEnabled();
   const [diceQueue, setDiceQueue] = useState<StoredRoll[]>([]);
   const lastSeenRoll = useRef<number | null>(null);
   const storyRef = useRef<HTMLDivElement>(null);
@@ -64,6 +68,7 @@ export function Play({ campaignId }: { campaignId: number }) {
           </div>
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
           <button className="btn btn-ghost header-btn" aria-label="Story so far" onClick={() => setRecapOpen(true)}><span className="label-long">Story so far</span><span className="label-short">Recap</span></button>
+          {feedbackEnabled && <button className="btn btn-ghost header-btn" aria-label="Send feedback" onClick={() => setFeedbackOpen(true)}><span className="label-long">Feedback</span><span className="label-short">💬</span></button>}
           <button className="btn btn-ghost header-btn sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
@@ -75,6 +80,7 @@ export function Play({ campaignId }: { campaignId: number }) {
       </div>
       <CharacterSheet snapshot={snapshot} me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />
       {recapOpen && <RecapPanel campaignId={campaignId} onClose={() => setRecapOpen(false)} />}
+      {feedbackOpen && <FeedbackPanel screen="play" campaignId={campaignId} characterId={myId} onClose={() => setFeedbackOpen(false)} />}
       {current && (
         <DiceOverlay key={current.id} roll={current} name={nameOf(snapshot.characters, current.characterId)}
           onDone={() => setDiceQueue((q) => q.slice(1))} />

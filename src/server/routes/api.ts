@@ -4,6 +4,7 @@ import { ABILITIES, AI_PHASES, type AdventureOutline } from "../../shared/types"
 import { campaignInputFrom, PRESETS } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
+import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
 import type { RulesEngine } from "../rules/engine";
 import { NameTakenError, type Store } from "../store/store";
 import { buildSnapshot } from "../turns/snapshot";
@@ -31,12 +32,26 @@ export const NewCharacterSchema = z.object({
 const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string().trim().min(1).max(40), concept: z.string().trim().min(1).max(120) });
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
 
+export const FeedbackSchema = z.object({
+  kind: z.enum(["bug", "idea"]),
+  title: z.string().trim().min(1, "Give it a short title.").max(100),
+  details: z.string().trim().max(4000),
+  screen: z.string().trim().max(40),
+  campaignId: z.number().int().optional(),
+  characterId: z.number().int().optional(),
+});
+
+/** How many recent events go into a bug report. */
+const FEEDBACK_EVENTS = 30;
+
 export interface ApiDeps {
   store: Store; rules: RulesEngine; dm: DungeonMaster; chat: ChatClient; turns: TurnService; adventures: AdventureOutline[];
+  /** Absent when no GitHub token is configured: the feedback button stays hidden. */
+  feedback?: { issues: IssueFiler; appVersion: string; model: string };
 }
 
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
-  const { store, rules, dm, chat, turns, adventures } = deps;
+  const { store, rules, dm, chat, turns, adventures, feedback } = deps;
   const bad = (error: z.ZodError) => ({ error: z.prettifyError(error) });
 
   app.get("/api/presets", async () => ({
@@ -130,6 +145,33 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     } catch (e) {
       if (e instanceof OllamaError) return reply.code(503).send({ error: e.message });
       throw e;
+    }
+  });
+
+  app.get("/api/feedback", async () => ({ enabled: Boolean(feedback) }));
+
+  app.post("/api/feedback", async (req, reply) => {
+    if (!feedback) return reply.code(503).send({ error: "Feedback isn't set up on this computer." });
+    const parsed = FeedbackSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    const { kind, title, details, screen, campaignId, characterId } = parsed.data;
+    const campaign = campaignId === undefined ? undefined : store.getCampaign(campaignId);
+    const characters = campaign ? store.getCharacters(campaign.id) : [];
+    const body = buildIssueBody({
+      kind, details, screen, appVersion: feedback.appVersion, model: feedback.model, userAgent: req.headers["user-agent"],
+      campaign: campaign && { id: campaign.id, title: campaign.title, sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
+      character: characters.find((c) => c.id === characterId),
+      characters,
+      events: campaign ? store.getEvents(campaign.id, { limit: FEEDBACK_EVENTS }) : [],
+      now: new Date(),
+    });
+    try {
+      const issue = await feedback.issues.file({ title, body, labels: [kind === "bug" ? "bug" : "enhancement"] });
+      return { url: issue.url };
+    } catch (e) {
+      if (!(e instanceof IssueFilerError)) throw e;
+      req.log.error({ err: e }, "filing feedback failed");
+      return reply.code(502).send({ error: "Couldn't send that just now. Check the internet connection and try again." });
     }
   });
 }

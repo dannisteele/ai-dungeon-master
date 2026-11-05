@@ -7,6 +7,9 @@ export interface Config {
   ollamaKeepAlive: string;
   dbPath: string;
   promptBudgetTokens: number;
+  /** Fine-grained token with Issues: write on githubRepo. Unset hides the feedback button. */
+  githubToken?: string;
+  githubRepo: string;
 }
 
 function intFrom(env: NodeJS.ProcessEnv, key: string, fallback: number, min: number, max: number): number {
@@ -32,5 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ollamaKeepAlive: env.OLLAMA_KEEP_ALIVE || "30m",
     dbPath: env.DB_PATH || "./data/game.sqlite",
     promptBudgetTokens: intFrom(env, "PROMPT_BUDGET_TOKENS", 12000, 2000, 200000),
+    githubToken: env.GITHUB_TOKEN?.trim() || undefined,
+    githubRepo: env.GITHUB_REPO?.trim() || "dannisteele/ai-dungeon-master",
   };
 }

@@ -40,6 +40,8 @@ button { font: inherit; cursor: pointer; }
 .input { width: 100%; background: var(--panel-deep); color: var(--text); border: 1px solid #4a3218; border-radius: var(--radius); padding: .6em .8em; font: inherit; resize: vertical; }
 .input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(224, 168, 74, .15); }
 label.stack > span { color: var(--muted); font-size: .9rem; }
+.field { display: block; }
+.stack.field > * + * { margin-top: .4rem; }
 
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
 .card-choice { text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color .2s, box-shadow .2s; }

@@ -10,6 +10,8 @@ import { loadAdventures } from "./campaigns/adventures";
 import type { Config } from "./config";
 import type { DungeonMaster } from "./dm/dm";
 import type { ChatClient } from "./dm/ollama";
+import { createGitHubIssueFiler, type IssueFiler } from "./feedback/github";
+import { appVersion } from "./feedback/version";
 import { Hub } from "./realtime/hub";
 import { registerApi } from "./routes/api";
 import { registerWs } from "./routes/ws";
@@ -21,6 +23,8 @@ import { TurnService } from "./turns/turns";
 export interface AppDeps {
   config: Config; store: Store; dm: DungeonMaster; chat: ChatClient;
   rules?: RulesEngine; dice?: D20; serveClient?: boolean; serverSecret?: string;
+  /** Defaults to GitHub when config.githubToken is set; otherwise feedback is off. */
+  issues?: IssueFiler;
 }
 
 const CLIENT_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../dist/client");
@@ -45,7 +49,10 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; t
     if (req.headers.upgrade && reply.statusCode !== 101) reply.raw.socket?.destroy();
   });
 
-  await registerApi(app, { store: deps.store, rules, dm: deps.dm, chat: deps.chat, turns, adventures: loadAdventures() });
+  const { githubToken, githubRepo, ollamaModel } = deps.config;
+  const issues = deps.issues ?? (githubToken ? createGitHubIssueFiler({ token: githubToken, repo: githubRepo }) : undefined);
+  const feedback = issues && { issues, appVersion: appVersion(), model: ollamaModel };
+  await registerApi(app, { store: deps.store, rules, dm: deps.dm, chat: deps.chat, turns, adventures: loadAdventures(), feedback });
   await registerWs(app, { store: deps.store, rules, turns, hub });
 
   if (deps.serveClient) {
