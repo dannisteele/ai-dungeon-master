@@ -1,5 +1,5 @@
 import { AI_PHASES, type AiPhase, type Campaign, type Character, type RoundStatus } from "../../shared/types";
-import { buildContext, transcriptFromEvents } from "../dm/context";
+import { buildContext, lastEditedThrough, memoryText, transcriptFromEvents } from "../dm/context";
 import type { DungeonMaster, StreamHandlers } from "../dm/dm";
 import type { ResolveOutput } from "../dm/schemas";
 import type { Broadcaster } from "../realtime/hub";
@@ -11,6 +11,9 @@ import { activeCharacters, buildSnapshot } from "./snapshot";
 import { roundStatus } from "./status";
 
 /** A player-facing problem ("it's not your turn"), safe to show in the UI. */
+/** The story so far as the players see it: their pinned text plus the DM's summary since. */
+export interface Recap { summary: string; throughRound: number; editedThrough: number | null }
+
 export class GameError extends Error {}
 
 export interface TurnDeps { store: Store; rules: RulesEngine; dm: DungeonMaster; hub: Broadcaster; dice: D20 }
@@ -111,19 +114,40 @@ export class TurnService {
    * finished round; otherwise has the DM summarise just the new rounds. Never takes the campaign
    * lock (play carries on), but waits for any in-flight summary rather than overlapping it.
    */
-  async recap(id: number): Promise<{ summary: string; throughRound: number }> {
-    if (this.campaign(id).roundNumber - 1 < 1) return { summary: "", throughRound: 0 };
+  async recap(id: number): Promise<Recap> {
+    const recap = (throughRound: number): Recap => ({
+      summary: memoryText(this.campaign(id)), throughRound, editedThrough: lastEditedThrough(this.deps.store.getEvents(id)),
+    });
+    if (this.campaign(id).roundNumber - 1 < 1) return recap(0);
     for (let running = this.summarising.get(id); running; running = this.summarising.get(id)) {
       await running.catch(() => undefined);
     }
     const through = this.campaign(id).roundNumber - 1;
     const lastThrough = this.lastSummaryThrough(id);
-    if (lastThrough >= through) return { summary: this.campaign(id).summary, throughRound: lastThrough };
+    if (lastThrough >= through) return recap(lastThrough);
     const p = this.summariseRange(id, lastThrough + 1, through);
     this.trackSummary(id, p);
     await p;
     this.broadcastSnapshot(id);
-    return { summary: this.campaign(id).summary, throughRound: through };
+    return recap(through);
+  }
+
+  /**
+   * The players rewrite the story so far. Their text is kept word for word (pinned) and stands for
+   * everything up to now: the DM's summary restarts from here, and its verbatim rounds start after.
+   */
+  async editSummary(id: number, text: string): Promise<Recap> {
+    const c = this.campaign(id);
+    if ((AI_PHASES as readonly string[]).includes(c.roundState)) throw new GameError("The Dungeon Master is mid-sentence. Try again once the story settles.");
+    if (this.summarising.has(id)) throw new GameError("The story so far is being written up. Try again in a moment.");
+    const pinned = text.trim();
+    const throughRound = Math.max(0, c.roundNumber - 1);
+    this.deps.store.transaction(() => {
+      this.deps.store.updateCampaign(id, { pinnedSummary: pinned, summary: "" });
+      this.deps.store.appendEvent(id, c.roundNumber, { type: "summary", text: pinned, throughRound, edited: true });
+    });
+    this.broadcastSnapshot(id);
+    return { summary: pinned, throughRound, editedThrough: throughRound };
   }
 
   /** Call once at startup: a phase that was running when the server stopped can never finish. */
@@ -327,7 +351,7 @@ export class TurnService {
     // Refresh the cards of everyone the DM touched in these rounds (their current card goes in).
     const named = new Set(events.flatMap((e) => (e.type === "op_applied" && e.op.op === "npc" ? [e.op.name.trim().toLowerCase()] : [])));
     const people = store.getPeople(id).filter((p) => named.has(p.name.toLowerCase())).map((p) => ({ name: p.name, about: p.about }));
-    const out = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)), people);
+    const out = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)), people, c.pinnedSummary);
     store.transaction(() => {
       store.updateCampaign(id, { summary: out.summary });
       // Only cards that were asked about; setPersonAbout skips player-edited ones.

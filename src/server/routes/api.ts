@@ -4,12 +4,13 @@ import { ABILITIES, AI_PHASES, DICE_MODES, REALISMS, type AdventureOutline } fro
 import { campaignInputFrom, PRESETS, settingLabel } from "../campaigns/presets";
 import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
+import { memoryText } from "../dm/context";
 import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
 import { isNewer, type UpdateChecker } from "../updates";
 import type { RulesEngine } from "../rules/engine";
 import { NameTakenError, type Store } from "../store/store";
 import { buildSnapshot } from "../turns/snapshot";
-import type { TurnService } from "../turns/turns";
+import { GameError, type TurnService } from "../turns/turns";
 
 export const NewCampaignSchema = z.object({
   mode: z.enum(["solo", "party"]),
@@ -43,6 +44,7 @@ const PersonEditSchema = z.object({
   /** Hand the description back to the DM after the player edited it. */
   letDmUpdate: z.literal(true).optional(),
 }).refine((v) => v.about !== undefined || v.notes !== undefined || v.letDmUpdate, { message: "Nothing to change." });
+const SummaryEditSchema = z.object({ summary: z.string().trim().min(1, "Write something for the story so far.").max(4000) });
 const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
 
@@ -216,6 +218,19 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
   });
 
 
+  app.put<{ Params: { id: string } }>("/api/campaigns/:id/summary", async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!store.getCampaign(id)) return reply.code(404).send({ error: "No such campaign." });
+    const parsed = SummaryEditSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    try {
+      return await turns.editSummary(id, parsed.data.summary);
+    } catch (e) {
+      if (e instanceof GameError) return reply.code(409).send({ error: e.message });
+      throw e;
+    }
+  });
+
   app.post("/api/pack-up", async (_req, reply) => {
     if (dmBusy()) return reply.code(409).send(midSentence);
     try {
@@ -242,7 +257,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const campaign = campaignId === undefined ? undefined : store.getCampaign(campaignId);
     const characters = campaign ? store.getCharacters(campaign.id) : [];
     const body = buildIssueBody({
-      kind, details, screen, includeStory, summary: campaign?.summary, appVersion: version, model: chat.getModel(), userAgent: req.headers["user-agent"],
+      kind, details, screen, includeStory, summary: campaign && memoryText(campaign), appVersion: version, model: chat.getModel(), userAgent: req.headers["user-agent"],
       campaign: campaign && { id: campaign.id, title: campaign.title, setting: settingLabel(campaign, { includePitch: includeStory }), sceneTitle: campaign.sceneTitle, round: campaign.roundNumber },
       character: characters.find((c) => c.id === characterId),
       characters,

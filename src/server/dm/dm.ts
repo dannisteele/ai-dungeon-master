@@ -24,7 +24,7 @@ export interface DungeonMaster {
   revive(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
   startingKit(input: { name: string; concept: string; setting: string; realism: Realism }): Promise<KitItem[]>;
   /** The new story-so-far, and refreshed descriptions for the people given. */
-  summarise(oldSummary: string, rounds: RoundTranscript[], people?: { name: string; about: string }[]): Promise<{ summary: string; people: { name: string; about: string }[] }>;
+  summarise(oldSummary: string, rounds: RoundTranscript[], people?: { name: string; about: string }[], pinned?: string): Promise<{ summary: string; people: { name: string; about: string }[] }>;
 }
 
 export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine; budgetTokens: number }): DungeonMaster {
@@ -80,8 +80,8 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
       const out = await callStructured(kitMessages(input), KitSchema, kitFormat);
       return out.items.slice(0, 5);
     },
-    async summarise(oldSummary, rounds, people = []) {
-      const out = await callStructured(summaryMessages(oldSummary, rounds, people), SummarySchema, summaryFormat);
+    async summarise(oldSummary, rounds, people = [], pinned = "") {
+      const out = await callStructured(summaryMessages(oldSummary, rounds, people, pinned), SummarySchema, summaryFormat);
       return { summary: out.summary, people: out.people };
     },
   };

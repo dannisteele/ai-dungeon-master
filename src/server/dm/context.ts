@@ -46,13 +46,32 @@ export function transcriptFromEvents(events: StoredEvent[], characters: Characte
   return [...rounds.entries()].sort(([a], [b]) => a - b).map(([round, lines]) => ({ round, lines }));
 }
 
+/**
+ * The DM's memory of the story so far: the players' own words (pinned) first, then the DM's summary
+ * of what has happened since.
+ */
+export function memoryText(c: Pick<Campaign, "pinnedSummary" | "summary">): string {
+  if (c.pinnedSummary && c.summary) return `${c.pinnedSummary}\n\nSince then:\n${c.summary}`;
+  return c.pinnedSummary || c.summary;
+}
+
+/** The last round the players' own edit of the story covers, or null if they've never edited it. */
+export function lastEditedThrough(events: StoredEvent[]): number | null {
+  let last: number | null = null;
+  for (const e of events) if (e.type === "summary" && e.edited) last = e.throughRound;
+  return last;
+}
+
 export function buildContext(store: Store, campaignId: number, rounds = 10): DmContext {
   const campaign = store.getCampaign(campaignId);
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
   const characters = store.getCharacters(campaignId);
   const people = store.getPeople(campaignId);
+  // After the players rewrite the story so far, their version stands for everything up to the
+  // edit: the DM's verbatim rounds start after it, so older rounds can't contradict it.
+  const edited = lastEditedThrough(store.getEvents(campaignId));
   const events = campaign.roundNumber === 0 ? [] : store.getEvents(campaignId, {
-    fromRound: Math.max(0, campaign.roundNumber - rounds),
+    fromRound: Math.max(0, campaign.roundNumber - rounds, edited === null ? 0 : edited + 1),
     toRound: campaign.roundNumber - 1,
   });
   return { campaign, characters, people, recentRounds: transcriptFromEvents(events, characters) };

@@ -9,13 +9,16 @@ export interface FeedbackRequest {
   includeStory: boolean;
 }
 
+/** The story so far: the players' pinned text plus the DM's summary since, and when they last edited it. */
+export interface Recap { summary: string; throughRound: number; editedThrough: number | null }
+
 export interface ModelChoice { name: string; label: string; installed: boolean }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function request<T>(method: "GET" | "POST" | "PATCH" | "DELETE", url: string, body?: unknown): Promise<T> {
+async function request<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
@@ -49,7 +52,8 @@ export const api = {
   spendPoint: (characterId: number, ability: Ability) =>
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
-  recap: (campaignId: number) => request<{ summary: string; throughRound: number }>("POST", `/api/campaigns/${campaignId}/recap`),
+  recap: (campaignId: number) => request<Recap>("POST", `/api/campaigns/${campaignId}/recap`),
+  editSummary: (campaignId: number, summary: string) => request<Recap>("PUT", `/api/campaigns/${campaignId}/summary`, { summary }),
   models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),
   setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
   version: () => request<{ version: string; latest: string | null; updateAvailable: boolean }>("GET", "/api/version"),
