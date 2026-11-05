@@ -92,6 +92,9 @@ if (sheetChanges === 0) console.log("WARNING: the DM made no sheet changes");
 const npcUpdates = opCount("npc") + opCount("npc_gone");
 console.log(`npc updates: ${npcUpdates}`);
 if (npcUpdates === 0) console.log("WARNING: the DM never updated the Nearby list");
+const people = store.getPeople(campaign.id);
+console.log(`people cards: ${people.filter((p) => p.about).length}/${people.length} with a description`);
+for (const p of people) console.log(`  ${p.name}${p.present ? "" : " (gone)"}: ${p.about || "-"}`);
 for (const e of events) if (e.type === "op_rejected") console.log(`  rejected: ${JSON.stringify(e.op)} (${e.reason})`);
 for (const c of store.getCharacters(campaign.id)) console.log(`${c.name}: HP ${c.hp}/${c.maxHp}, items: ${c.items.map((i) => i.name).join(", ")}`);
 // A grounded story must contain nothing impossible. Only the DM's narration counts, not the heroes' actions.

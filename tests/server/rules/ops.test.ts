@@ -96,6 +96,13 @@ describe("NPC ops", () => {
     expect(r.npcs).toEqual([]);
   });
 
+  it("keeps the DM's description of an NPC, and rejects one over 300 characters", () => {
+    const r = applyOps([hero()], [{ op: "npc", name: "Mrs Bell", attitude: "friendly", condition: "unhurt", about: "Runs the bakery." }]);
+    expect(r.npcs).toEqual([{ name: "Mrs Bell", attitude: "friendly", condition: "unhurt", about: "Runs the bakery." }]);
+    const long = applyOps([hero()], [{ op: "npc", name: "Bell", attitude: "friendly", condition: "unhurt", about: "x".repeat(301) }]);
+    expect(long.rejected).toHaveLength(1);
+  });
+
   it("adds NPCs and updates them case-insensitively, keeping the newest spelling", () => {
     const r = applyOps([hero()], [brute, { op: "npc", name: "  scarred BRUTE ", attitude: "hostile", condition: "wounded" }]);
     expect(r.npcs).toEqual([{ name: "scarred BRUTE", attitude: "hostile", condition: "wounded" }]);

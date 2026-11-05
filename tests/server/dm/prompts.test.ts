@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DmContext } from "../../../src/server/dm/context";
-import { adjudicateTask, buildMessages, campaignBlock, estimateTokens, kitMessages, partyBlock, resolveTask, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
+import { adjudicateTask, buildMessages, campaignBlock, estimateTokens, kitMessages, metBlock, partyBlock, resolveTask, summaryMessages, systemPrompt, nearbyBlock, openingTask, reviveTask } from "../../../src/server/dm/prompts";
 import { toFormat, resolveFormatSchema, AdjudicateSchema } from "../../../src/server/dm/schemas";
 import { lightRules } from "../../../src/server/rules/engine";
-import type { Campaign, Character } from "../../../src/shared/types";
+import type { Campaign, Character, Person } from "../../../src/shared/types";
+
+const person = (name: string, over: Partial<Person> = {}): Person => ({
+  name, about: "", notes: "", attitude: "neutral", condition: "unhurt", present: true, lastSeenRound: 1, aboutEdited: false, ...over,
+});
 
 const campaign: Campaign = {
   id: 1, title: "The Drowned Chapel", mode: "party", setting: "Gothic fantasy", pitch: "A bell rings at night",
@@ -56,7 +60,7 @@ describe("prompts", () => {
   });
 
   it("buildMessages includes outline, summary and recent rounds", () => {
-    const ctx: DmContext = { campaign, characters: [corvin], npcs: [], recentRounds: [{ round: 2, lines: ["DM: older"] }] };
+    const ctx: DmContext = { campaign, characters: [corvin], people: [], recentRounds: [{ round: 2, lines: ["DM: older"] }] };
     const [system, user] = buildMessages(ctx, lightRules, "TASK", 12000);
     expect(system.role).toBe("system");
     expect(system.content).toContain("Never invent dice results");
@@ -69,7 +73,7 @@ describe("prompts", () => {
   it("drops the oldest rounds first to fit the budget", () => {
     const big = "x".repeat(4000);
     const ctx: DmContext = {
-      campaign, characters: [corvin], npcs: [],
+      campaign, characters: [corvin], people: [],
       recentRounds: Array.from({ length: 10 }, (_, i) => ({ round: i, lines: [`DM: r${i} ${big}`] })),
     };
     const msgs = buildMessages(ctx, lightRules, "TASK", 6000);
@@ -89,9 +93,10 @@ describe("prompts", () => {
 
   it("shows the DM who is nearby", () => {
     expect(nearbyBlock([])).toBe("Nearby: nobody notable.");
-    expect(nearbyBlock([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]))
+    expect(nearbyBlock([person("Scarred Brute", { attitude: "hostile", condition: "wounded" })]))
       .toBe("Nearby (authoritative):\n- Scarred Brute: hostile, wounded");
-    const ctx: DmContext = { campaign, characters: [corvin], npcs: [{ name: "Jailer", attitude: "wary", condition: "unhurt" }], recentRounds: [] };
+    expect(nearbyBlock([person("Gone", { present: false })])).toBe("Nearby: nobody notable.");
+    const ctx: DmContext = { campaign, characters: [corvin], people: [person("Jailer", { attitude: "wary" })], recentRounds: [] };
     const [system, user] = buildMessages(ctx, lightRules, "TASK", 12000);
     expect(user.content).toContain("- Jailer: wary, unhurt");
     expect(system.content).toContain("Keep the Nearby list true");
@@ -164,5 +169,52 @@ describe("dice settings", () => {
     const input = { actions, skipped: [], rolls: [] };
     expect(resolveTask(input, "off")).toContain("There are no dice in this game");
     expect(resolveTask(input, "normal")).not.toContain("There are no dice in this game");
+  });
+});
+
+describe("people cards in the prompt", () => {
+  it("shows the DM's description and the player's notes, only when there are some", () => {
+    expect(nearbyBlock([person("Bell", { about: "Runs the bakery.", notes: "My aunt." })]))
+      .toBe("Nearby (authoritative):\n- Bell: neutral, unhurt. About: Runs the bakery. Player's notes: My aunt.");
+    expect(nearbyBlock([person("Bell", { notes: "My aunt." })])).toContain("- Bell: neutral, unhurt. Player's notes: My aunt.");
+  });
+
+  it("keeps long cards from crowding out the story", () => {
+    const line = nearbyBlock([person("Bell", { notes: "n".repeat(1000) })]).split("\n")[1];
+    expect(line.length).toBeLessThanOrEqual(400);
+    const many = nearbyBlock(Array.from({ length: 12 }, (_, i) => person(`P${i}`, { about: "a".repeat(300), notes: "n".repeat(300) })));
+    expect(many.length).toBeLessThanOrEqual(3000);
+  });
+
+  it("lists people met who aren't here, most recent first, capped", () => {
+    expect(metBlock([person("Here")])).toBe("");
+    const absent = Array.from({ length: 20 }, (_, i) => person(`Gone${i}`, { present: false, about: "x".repeat(150) }));
+    const block = metBlock(absent);
+    expect(block.startsWith("People you have met (not here now):")).toBe(true);
+    expect(block).toContain("- Gone0: ");
+    expect(block).not.toContain("Gone12");
+    expect(block.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("drops old rounds before people when the prompt is too long", () => {
+    const ctx: DmContext = {
+      campaign, characters: [corvin],
+      people: [person("Bell", { about: "Runs the bakery." }), person("Tom", { present: false, about: "Her son, away at sea." })],
+      recentRounds: Array.from({ length: 10 }, (_, i) => ({ round: i + 1, lines: [`DM: ${"long story ".repeat(200)}`] })),
+    };
+    const [system, user] = buildMessages(ctx, lightRules, "TASK", 3000);
+    expect(user.content).toContain("- Bell: neutral, unhurt. About: Runs the bakery.");
+    expect(user.content).toContain("- Tom: Her son, away at sea.");
+    expect(user.content).not.toContain("round 1");
+    expect(system.content).toContain("Player's notes are the truth");
+  });
+
+  it("asks the DM to describe people, and the summary pass to refresh their cards", () => {
+    expect(resolveTask({ actions: [], skipped: [], rolls: [] })).toContain('"about"');
+    expect(openingTask()).toContain('"about"');
+    const msgs = summaryMessages("", [{ round: 1, lines: ["DM: hi"] }], [{ name: "Bell", about: "Runs the bakery." }]);
+    expect(msgs[1].content).toContain("- Bell: Runs the bakery.");
+    expect(msgs[1].content).toContain('"people"');
+    expect(summaryMessages("", [], [])[1].content).not.toContain('"people"');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DmContext } from "../../../src/server/dm/context";
+import { buildContext, type DmContext } from "../../../src/server/dm/context";
 import { DmError, type DungeonMaster, type StreamHandlers } from "../../../src/server/dm/dm";
 import type { ActionInput, ResolveInput } from "../../../src/server/dm/prompts";
 import type { CheckDraft } from "../../../src/server/dm/schemas";
@@ -21,6 +21,8 @@ class FakeDm implements DungeonMaster {
   summaries = 0;
   summariseFailNext = false;
   summariseGate: Promise<void> | null = null;
+  summaryPeopleIn: { name: string; about: string }[][] = [];
+  nextSummaryPeople: { name: string; about: string }[] = [];
   onResolve: (() => void) | null = null;
 
   async adjudicate(_ctx: DmContext, actions: ActionInput[]) {
@@ -53,11 +55,13 @@ class FakeDm implements DungeonMaster {
     return { narration: "You wake in a cell.", changes };
   }
   async startingKit() { return [{ name: "Rope", description: "30ft" }]; }
-  async summarise(_old: string, rounds: unknown[]) {
+  async summarise(_old: string, rounds: unknown[], people: { name: string; about: string }[] = []) {
     this.summaries++;
+    this.summaryPeopleIn.push(people);
     if (this.summariseGate) await this.summariseGate;
     if (this.summariseFailNext) { this.summariseFailNext = false; throw new Error("summary failed"); }
-    return `summary of ${rounds.length} rounds`;
+    const out = this.nextSummaryPeople; this.nextSummaryPeople = [];
+    return { summary: `summary of ${rounds.length} rounds`, people: out };
   }
 }
 
@@ -469,6 +473,51 @@ describe("TurnService", () => {
     b.store.saveCharacter({ ...b.store.getCharacter(b.chars[0].id)!, hp: 0 });
     b.turns.recoverInterrupted();
     expect(b.store.getCampaign(b.id)!.roundState).toBe("collecting");
+  });
+
+  it("npc_gone keeps the card, and the DM is still told about them", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "npc", name: "Mrs Bell", attitude: "friendly", condition: "unhurt", about: "Runs the bakery." }];
+    await turns.submitAction(id, chars[0].id, "I buy bread");
+    dm.nextChanges = [{ op: "npc_gone", name: "Mrs Bell" }];
+    await turns.submitAction(id, chars[0].id, "I leave");
+    expect(store.getNpcs(id)).toEqual([]);
+    expect(store.getPeople(id)).toEqual([expect.objectContaining({ name: "Mrs Bell", present: false, about: "Runs the bakery." })]);
+    expect(buildContext(store, id).people.map((p) => p.name)).toEqual(["Mrs Bell"]);
+  });
+
+  it("set_scene clears who is present but keeps the cards", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "npc", name: "Guard", attitude: "wary", condition: "unhurt" }];
+    await turns.submitAction(id, chars[0].id, "I look around");
+    dm.nextChanges = [{ op: "set_scene", title: "The Market" }];
+    await turns.submitAction(id, chars[0].id, "I walk on");
+    expect(store.getPeople(id)).toEqual([expect.objectContaining({ name: "Guard", present: false })]);
+  });
+
+  it("an npc op's description never overwrites one the player wrote", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "npc", name: "Bell", attitude: "friendly", condition: "unhurt", about: "A baker." }];
+    await turns.submitAction(id, chars[0].id, "I buy bread");
+    store.updatePerson(id, "Bell", { about: "My aunt.", aboutEdited: true });
+    dm.nextChanges = [{ op: "npc", name: "Bell", attitude: "wary", condition: "unhurt", about: "A stranger." }];
+    await turns.submitAction(id, chars[0].id, "I wave");
+    expect(store.getPeople(id)[0]).toMatchObject({ about: "My aunt.", attitude: "wary" });
+  });
+
+  it("the summary pass refreshes cards of people in those rounds, except edited or unknown ones", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [
+      { op: "npc", name: "Bell", attitude: "friendly", condition: "unhurt", about: "A baker." },
+      { op: "npc", name: "Tom", attitude: "neutral", condition: "unhurt", about: "Her son." },
+    ];
+    await turns.submitAction(id, chars[0].id, "I buy bread");
+    store.updatePerson(id, "Tom", { about: "My cousin.", aboutEdited: true });
+    dm.nextSummaryPeople = [{ name: "bell", about: "A baker who owes Corvin a favour." }, { name: "Tom", about: "x" }, { name: "Nobody", about: "y" }];
+    for (let i = 0; i < 9; i++) await turns.submitAction(id, chars[0].id, "I wait");
+    await turns.settle();
+    expect(dm.summaryPeopleIn[0]).toEqual([{ name: "Bell", about: "A baker." }, { name: "Tom", about: "My cousin." }]);
+    expect(store.getPeople(id).map((p) => [p.name, p.about])).toEqual([["Bell", "A baker who owes Corvin a favour."], ["Tom", "My cousin."]]);
   });
 
   it("NPCs persist across rounds and appear in snapshots", async () => {

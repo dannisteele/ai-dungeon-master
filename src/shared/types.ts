@@ -98,7 +98,7 @@ export type Op =
   | { op: "adjust_stat"; character: string; stat: Ability; delta: -1 | 1 }
   | { op: "level_up"; character: string }
   | { op: "set_scene"; title: string }
-  | { op: "npc"; name: string; attitude: Attitude; condition: Condition }
+  | { op: "npc"; name: string; attitude: Attitude; condition: Condition; about?: string }
   | { op: "npc_gone"; name: string };
 
 export type Crit = "nat20" | "nat1" | null;

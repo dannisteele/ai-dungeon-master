@@ -23,7 +23,8 @@ export interface DungeonMaster {
   opening(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
   revive(ctx: DmContext, stream: StreamHandlers): Promise<ResolveOutput>;
   startingKit(input: { name: string; concept: string; setting: string; realism: Realism }): Promise<KitItem[]>;
-  summarise(oldSummary: string, rounds: RoundTranscript[]): Promise<string>;
+  /** The new story-so-far, and refreshed descriptions for the people given. */
+  summarise(oldSummary: string, rounds: RoundTranscript[], people?: { name: string; about: string }[]): Promise<{ summary: string; people: { name: string; about: string }[] }>;
 }
 
 export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine; budgetTokens: number }): DungeonMaster {
@@ -79,9 +80,9 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
       const out = await callStructured(kitMessages(input), KitSchema, kitFormat);
       return out.items.slice(0, 5);
     },
-    async summarise(oldSummary, rounds) {
-      const out = await callStructured(summaryMessages(oldSummary, rounds), SummarySchema, summaryFormat);
-      return out.summary;
+    async summarise(oldSummary, rounds, people = []) {
+      const out = await callStructured(summaryMessages(oldSummary, rounds, people), SummarySchema, summaryFormat);
+      return { summary: out.summary, people: out.people };
     },
   };
 }

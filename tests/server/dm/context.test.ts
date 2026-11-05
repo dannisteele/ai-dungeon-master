@@ -67,7 +67,7 @@ describe("transcripts", () => {
     const ctx = buildContext(store, c.id, 10);
     expect(ctx.recentRounds.map((r) => r.round)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     expect(ctx.campaign.id).toBe(c.id);
-    expect(ctx.npcs).toEqual([{ name: "Rat", attitude: "hostile", condition: "unhurt" }]);
+    expect(ctx.people).toEqual([expect.objectContaining({ name: "Rat", attitude: "hostile", condition: "unhurt", present: true })]);
   });
 
   it("renders the party's defeat so the DM remembers it", () => {

@@ -25,7 +25,7 @@ class FakeChat implements ChatClient {
 
 const ctx: DmContext = {
   campaign: { id: 1, title: "T", mode: "solo", setting: "S", pitch: "", outline: null, sceneTitle: "", summary: "", pinnedSummary: "", realism: "fantastical", dice: "normal", roundState: "resolving", roundNumber: 1, stalledPhase: null, createdAt: "", updatedAt: "" },
-  characters: [], npcs: [], recentRounds: [],
+  characters: [], people: [], recentRounds: [],
 };
 const make = (replies: (string | Error)[]) => {
   const chat = new FakeChat(replies);
@@ -109,7 +109,9 @@ describe("DungeonMaster", () => {
 
   it("summarises", async () => {
     const { dm } = make(['{"summary":"They won."}']);
-    expect(await dm.summarise("", [{ round: 1, lines: ["DM: x"] }])).toBe("They won.");
+    expect(await dm.summarise("", [{ round: 1, lines: ["DM: x"] }])).toEqual({ summary: "They won.", people: [] });
+    const withPeople = make(['{"summary":"They won.","people":[{"name":"Bell","about":"A baker."}]}']).dm;
+    expect(await withPeople.summarise("", [], [{ name: "Bell", about: "" }])).toEqual({ summary: "They won.", people: [{ name: "Bell", about: "A baker." }] });
   });
 
   it("revives with a streamed narration", async () => {

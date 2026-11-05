@@ -324,9 +324,16 @@ export class TurnService {
     // The opening narration is stored as round 0, so the first summary must start there, or the
     // story so far (and the DM's long-term memory) loses the premise: where the party began and why.
     const events = store.getEvents(id, { fromRound: fromRound <= 1 ? 0 : fromRound, toRound: throughRound });
-    const text = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)));
-    store.updateCampaign(id, { summary: text });
-    store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text, throughRound });
+    // Refresh the cards of everyone the DM touched in these rounds (their current card goes in).
+    const named = new Set(events.flatMap((e) => (e.type === "op_applied" && e.op.op === "npc" ? [e.op.name.trim().toLowerCase()] : [])));
+    const people = store.getPeople(id).filter((p) => named.has(p.name.toLowerCase())).map((p) => ({ name: p.name, about: p.about }));
+    const out = await dm.summarise(c.summary, transcriptFromEvents(events, store.getCharacters(id)), people);
+    store.transaction(() => {
+      store.updateCampaign(id, { summary: out.summary });
+      // Only cards that were asked about; setPersonAbout skips player-edited ones.
+      for (const p of out.people) if (named.has(p.name.trim().toLowerCase())) store.setPersonAbout(id, p.name, p.about);
+      store.appendEvent(id, this.campaign(id).roundNumber, { type: "summary", text: out.summary, throughRound });
+    });
   }
 
   private trackSummary(id: number, p: Promise<void>): void {

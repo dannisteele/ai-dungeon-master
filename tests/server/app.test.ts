@@ -19,7 +19,7 @@ const fakeDm = (over: Partial<DungeonMaster> = {}): DungeonMaster => ({
   opening: async () => ({ narration: "It begins.", changes: [] }),
   revive: async () => ({ narration: "You wake.", changes: [] }),
   startingKit: async () => [{ name: "Rope", description: "30ft" }],
-  summarise: async () => "summary",
+  summarise: async () => ({ summary: "summary", people: [] }),
   ...over,
 });
 
@@ -157,7 +157,7 @@ describe("API", () => {
   });
 
   it("writes a story-so-far recap on request", async () => {
-    const { req } = await start(fakeDm({ summarise: async () => "They wandered in the fog." }));
+    const { req } = await start(fakeDm({ summarise: async () => ({ summary: "They wandered in the fog.", people: [] }) }));
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
     expect((await req("POST", `/api/campaigns/${campaign.id}/recap`)).json()).toEqual({ summary: "", throughRound: 0 });
     store.appendEvent(campaign.id, 1, { type: "narration", text: "Fog everywhere." });
