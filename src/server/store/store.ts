@@ -9,7 +9,7 @@ export class NameTakenError extends Error {}
 
 export interface NewCampaignInput { title: string; mode: Mode; setting: string; pitch: string; outline: AdventureOutline | null }
 export interface NewCharacterInput { campaignId: number; name: string; concept: string; scores: Scores; hp: number; maxHp: number; items: Item[] }
-export type CampaignPatch = Partial<Pick<Campaign, "sceneTitle" | "summary" | "roundState" | "roundNumber" | "stalledPhase">>;
+export type CampaignPatch = Partial<Pick<Campaign, "title" | "sceneTitle" | "summary" | "roundState" | "roundNumber" | "stalledPhase">>;
 export interface EventQuery { fromRound?: number; toRound?: number; limit?: number }
 
 export interface Store {
@@ -17,6 +17,8 @@ export interface Store {
   getCampaign(id: number): Campaign | undefined;
   listCampaigns(): CampaignSummary[];
   updateCampaign(id: number, patch: CampaignPatch): void;
+  /** Removes the campaign with its heroes, story and NPCs. */
+  deleteCampaign(id: number): void;
   createCharacter(input: NewCharacterInput): Character;
   getCharacter(id: number): Character | undefined;
   getCharacters(campaignId: number): Character[];
@@ -117,7 +119,7 @@ const toEvent = (r: EventRow): StoredEvent => ({
 });
 
 const PATCH_COLUMNS: Record<keyof CampaignPatch, string> = {
-  sceneTitle: "scene_title", summary: "summary", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
+  title: "title", sceneTitle: "scene_title", summary: "summary", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
 };
 
 export function createStore(path: string): Store {
@@ -159,6 +161,9 @@ export function createStore(path: string): Store {
       if (keys.length === 0) return;
       const sets = keys.map((k) => `${PATCH_COLUMNS[k]} = @${k}`).join(", ");
       db.prepare(`UPDATE campaigns SET ${sets}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = @id`).run({ ...patch, id });
+    },
+    deleteCampaign(id) {
+      db.prepare("DELETE FROM campaigns WHERE id = ?").run(id);
     },
     createCharacter(i) {
       try {

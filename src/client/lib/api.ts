@@ -12,7 +12,7 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function request<T>(method: "GET" | "POST", url: string, body?: unknown): Promise<T> {
+async function request<T>(method: "GET" | "POST" | "PATCH" | "DELETE", url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
@@ -33,6 +33,8 @@ export const api = {
   presets: () => request<{ presets: Preset[]; adventures: AdventureInfo[] }>("GET", "/api/presets"),
   campaigns: () => request<{ campaigns: CampaignSummary[] }>("GET", "/api/campaigns"),
   createCampaign: (body: NewCampaignRequest) => request<{ campaign: Campaign }>("POST", "/api/campaigns", body),
+  renameCampaign: (id: number, title: string) => request<{ campaign: Campaign }>("PATCH", `/api/campaigns/${id}`, { title }),
+  deleteCampaign: (id: number) => request<{ ok: true }>("DELETE", `/api/campaigns/${id}`),
   snapshot: (id: number) => request<{ snapshot: Snapshot }>("GET", `/api/campaigns/${id}`),
   kit: (body: { campaignId: number; name: string; concept: string }) => request<{ items: KitItem[] }>("POST", "/api/kit", body),
   createCharacter: (campaignId: number, body: NewCharacterRequest) =>

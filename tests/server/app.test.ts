@@ -43,7 +43,7 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
   ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest } }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
-  const req = (method: "GET" | "POST", url: string, payload?: object) =>
+  const req = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
     app.inject({ method, url, payload, remoteAddress: LAN, headers: { cookie } });
   return { req, cookie };
 }
@@ -107,6 +107,26 @@ describe("API", () => {
     const { req } = await start(fakeDm({ startingKit: async () => { throw new DmError("down"); } }));
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "classic-fantasy" } })).json();
     expect((await req("POST", "/api/kit", { campaignId: campaign.id, name: "A", concept: "b" })).statusCode).toBe(503);
+  });
+
+  it("renames and deletes campaigns, but not mid-sentence", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    await req("POST", `/api/campaigns/${campaign.id}/characters`, { name: "Wren", concept: "scout", scores, items: [] });
+    store.appendEvent(campaign.id, 1, { type: "narration", text: "Fog." });
+
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}`, { title: "  The Fog  " })).json().campaign.title).toBe("The Fog");
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}`, { title: " " })).statusCode).toBe(400);
+    expect((await req("PATCH", "/api/campaigns/999", { title: "x" })).statusCode).toBe(404);
+
+    store.updateCampaign(campaign.id, { roundState: "resolving" });
+    expect((await req("DELETE", `/api/campaigns/${campaign.id}`)).statusCode).toBe(409);
+    store.updateCampaign(campaign.id, { roundState: "collecting" });
+    expect((await req("DELETE", `/api/campaigns/${campaign.id}`)).json()).toEqual({ ok: true });
+    expect((await req("GET", "/api/campaigns")).json().campaigns).toEqual([]);
+    expect(store.getEvents(campaign.id)).toEqual([]);
+    expect(store.getCharacters(campaign.id)).toEqual([]);
+    expect((await req("DELETE", `/api/campaigns/${campaign.id}`)).statusCode).toBe(404);
   });
 
   it("spends ability points", async () => {

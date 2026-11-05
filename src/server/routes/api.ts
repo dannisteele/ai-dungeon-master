@@ -32,6 +32,7 @@ export const NewCharacterSchema = z.object({
 
 const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string().trim().min(1).max(40), concept: z.string().trim().min(1).max(120) });
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
+const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
 
 /** Friendly names for the models we've tested; anything else shows its Ollama name. */
@@ -86,6 +87,27 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const id = Number(req.params.id);
     if (!store.getCampaign(id)) return reply.code(404).send({ error: "No such campaign." });
     return { snapshot: buildSnapshot(store, rules, id) };
+  });
+
+  app.patch<{ Params: { id: string } }>("/api/campaigns/:id", async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!store.getCampaign(id)) return reply.code(404).send({ error: "No such campaign." });
+    const parsed = RenameSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    store.updateCampaign(id, { title: parsed.data.title });
+    turns.broadcastSnapshot(id);
+    return { campaign: store.getCampaign(id) };
+  });
+
+  app.delete<{ Params: { id: string } }>("/api/campaigns/:id", async (req, reply) => {
+    const id = Number(req.params.id);
+    const campaign = store.getCampaign(id);
+    if (!campaign) return reply.code(404).send({ error: "No such campaign." });
+    if ((AI_PHASES as readonly string[]).includes(campaign.roundState)) {
+      return reply.code(409).send({ error: "The Dungeon Master is mid-sentence in that tale. Try again once it settles." });
+    }
+    store.deleteCampaign(id);
+    return { ok: true };
   });
 
   app.post("/api/kit", async (req, reply) => {
