@@ -3,6 +3,7 @@
 # Safe to run again: it skips whatever is already done.
 # Self-contained (no common.ps1) because it may be run before the game is downloaded.
 # npm is called as npm.cmd: npm.ps1 rebuilds its arguments from the caller's source text.
+# npm ci runs with --ignore-scripts; see the install step for why.
 
 $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "Dungeon Master setup"
@@ -76,7 +77,9 @@ try {
   Set-Location $Root
 
   Say "Installing the game's parts..."
-  Run npm.cmd ci --no-audit --no-fund
+  # --ignore-scripts: better-sqlite3 ships ready-made Windows builds, but newer npm versions
+  # try to compile it anyway, which needs Python and Visual Studio. Nothing else needs scripts.
+  Run npm.cmd ci --ignore-scripts --no-audit --no-fund
   Say "Building the game..."
   Run npm.cmd run build
 

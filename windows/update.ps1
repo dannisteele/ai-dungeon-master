@@ -36,9 +36,10 @@ $leftovers = @(Get-Process | Where-Object { $_.Path -and $_.Path -like "$Root\*"
 $leftovers | Stop-Process -Force -ErrorAction SilentlyContinue
 $leftovers | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue
 
-# npm ci, retried once in case Windows still had a file locked.
+# npm ci, retried once in case Windows still had a file locked. --ignore-scripts stops newer
+# npm from compiling better-sqlite3, which ships ready-made Windows builds (see setup.ps1).
 function Install {
-  try { Run npm.cmd ci --no-audit --no-fund } catch { Start-Sleep -Seconds 3; Run npm.cmd ci --no-audit --no-fund }
+  try { Run npm.cmd ci --ignore-scripts --no-audit --no-fund } catch { Start-Sleep -Seconds 3; Run npm.cmd ci --ignore-scripts --no-audit --no-fund }
 }
 
 $before = (git rev-parse HEAD).Trim()
