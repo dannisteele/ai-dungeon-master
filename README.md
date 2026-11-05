@@ -38,21 +38,24 @@ Running the setup again is safe: it skips whatever is already done.
 
 ## Playing
 
-- **New campaign**: choose a setting, write your own pitch, or pick a prepared adventure. Party = play together, Solo = just you.
+- **New campaign**: choose a setting, write your own pitch, or pick a prepared adventure. Party = play together, Solo = just you. Each story is **Grounded** (real life: no magic or anything impossible) or **Fantastical**; settings and adventures pick one, and your own pitch asks.
 - **Join**: each player creates a hero (5e point buy) on their own device, or picks an existing one.
 - **Begin**, then each round type what you do. The DM asks for checks when things are risky; press **Roll d20**.
+- **⋯ → Table settings** changes the dice (**Every risky moment**, **Only big moments**, or **Off**: story mode, where the DM decides fairly) and Grounded/Fantastical, mid-campaign. Grounded stories start on Only big moments.
+- **People** lists everyone you've met, with the DM's description of each, kept up to date as the story goes and used to keep them in character. **Edit** a card to correct it or add your own notes (the DM treats your notes as true). Tap someone under Nearby → **About** to jump to their card.
+- **Story so far** shows a recap. **Edit** it to fix a mistake or steer the story: the DM follows your version from then on.
 - **Go ahead without me** / **Don't wait for …** keeps the game moving.
 - **Try again** appears if the DM gets stuck (e.g. Ollama was closed).
 - **Dungeon Master's brain** (bottom of the lobby) switches between the models you've downloaded, e.g. Qwen 27B for the best storytelling or Qwen 9B for speed. The choice is remembered, and from then on overrides `OLLAMA_MODEL` in `.env`. It can't be changed while the DM is mid-sentence.
 - **Pack up for the night** (bottom of the lobby) unloads the model to free memory. Ollama also unloads it after `OLLAMA_KEEP_ALIVE` (default 30 minutes) of quiet.
-- **Nearby**: the people in the scene appear above the action box, coloured by attitude (red hostile, amber wary, grey neutral, green friendly) with their condition. Tap one for Attack / Talk to / Watch, which fills in your action so names are never misspelt.
+- **Nearby**: the people in the scene appear above the action box, coloured by attitude (red hostile, amber wary, grey neutral, green friendly) with their condition. Tap one for Attack / Talk to / Watch, which fills in your action so names are never misspelt, or About for their card.
 - **When the whole party falls**, play stops with a choice: **Revive** (everyone wakes at half HP and the Dungeon Master decides how you survived) or **Start a new campaign**.
 
 Saves are automatic: everything lives in the `data/` folder (`game.sqlite`, plus a `cookie-secret` file used to sign login sessions). Back up the whole `data/` folder, not just the database file. Deleting `cookie-secret` or changing `TABLE_PASSWORD` signs every device out — players just re-enter the password, nothing else is lost.
 
 ## Feedback button (optional)
 
-Players can send a bug report or an idea from the **Feedback** button (Tavern and play screen). It becomes a GitHub issue; bug reports include the last few moments of the story. To turn it on:
+Players can send a bug report or an idea from the **Feedback** button (Tavern, character page, and ⋯ on the play screen). It becomes a GitHub issue. The repo is public, so the story is only attached if you tick **Include the story so far**. To turn it on:
 
 1. On GitHub, go to **Settings → Developer settings → Fine-grained tokens → Generate new token**.
 2. Under **Repository access**, choose **Only select repositories** and pick this repo.
