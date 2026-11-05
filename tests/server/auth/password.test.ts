@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cookieSecret, loadOrCreateServerSecret, LoginRateLimiter, passwordMatches } from "../../../src/server/auth/password";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir as osTmpdir } from "node:os";
 import { join } from "node:path";
 
 describe("password", () => {
@@ -21,28 +22,29 @@ describe("password", () => {
 
 describe("loadOrCreateServerSecret", () => {
   it("creates the file if it does not exist", () => {
-    const tmpdir = mkdtempSync("/tmp/auth-test-");
+    const tmpdir = mkdtempSync(join(osTmpdir(), "auth-test-"));
     const path = join(tmpdir, "subdir", "secret");
     const secret = loadOrCreateServerSecret(path);
     expect(secret).toMatch(/^[0-9a-f]{64}$/);
     expect(readFileSync(path, "utf-8").trim()).toBe(secret);
   });
   it("returns the same value on subsequent calls", () => {
-    const tmpdir = mkdtempSync("/tmp/auth-test-");
+    const tmpdir = mkdtempSync(join(osTmpdir(), "auth-test-"));
     const path = join(tmpdir, "secret");
     const secret1 = loadOrCreateServerSecret(path);
     const secret2 = loadOrCreateServerSecret(path);
     expect(secret2).toBe(secret1);
   });
-  it("creates the file with mode 0o600", () => {
-    const tmpdir = mkdtempSync("/tmp/auth-test-");
+  // Windows has no Unix permission bits to check.
+  it.skipIf(process.platform === "win32")("creates the file with mode 0o600", () => {
+    const tmpdir = mkdtempSync(join(osTmpdir(), "auth-test-"));
     const path = join(tmpdir, "secret");
     loadOrCreateServerSecret(path);
     const stat = statSync(path);
     expect(stat.mode & 0o777).toBe(0o600);
   });
   it("treats an existing but empty or whitespace-only file as missing and regenerates", () => {
-    const tmpdir = mkdtempSync("/tmp/auth-test-");
+    const tmpdir = mkdtempSync(join(osTmpdir(), "auth-test-"));
     const path = join(tmpdir, "secret");
     writeFileSync(path, "   \n", { mode: 0o600 });
     const secret = loadOrCreateServerSecret(path);
