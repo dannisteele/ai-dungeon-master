@@ -153,3 +153,16 @@ describe("grounded or fantastical", () => {
     expect(user("fantastical")).toContain("no powerful magic");
   });
 });
+
+describe("dice settings", () => {
+  const actions = [{ character: "Corvin", text: "I run" }];
+  it("big dice asks for checks only at pivotal moments", () => {
+    expect(adjudicateTask(actions, "big")).toContain("genuinely pivotal");
+    expect(adjudicateTask(actions, "normal")).not.toContain("genuinely pivotal");
+  });
+  it("no dice tells the DM to decide outcomes fairly itself", () => {
+    const input = { actions, skipped: [], rolls: [] };
+    expect(resolveTask(input, "off")).toContain("There are no dice in this game");
+    expect(resolveTask(input, "normal")).not.toContain("There are no dice in this game");
+  });
+});

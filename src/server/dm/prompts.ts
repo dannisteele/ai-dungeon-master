@@ -1,5 +1,5 @@
 import { formatModifier, modifier } from "../../shared/abilities";
-import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type Npc, type Realism } from "../../shared/types";
+import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type DiceMode, type Npc, type Realism } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
 import type { DmContext, RoundTranscript } from "./context";
 import type { ChatMessage } from "./ollama";
@@ -98,12 +98,15 @@ export function nearbyBlock(npcs: Npc[]): string {
   return ["Nearby (authoritative):", ...npcs.map((n) => `- ${n.name}: ${n.attitude}, ${n.condition}`)].join("\n");
 }
 
-export function adjudicateTask(actions: ActionInput[]): string {
+export function adjudicateTask(actions: ActionInput[], dice: DiceMode = "normal"): string {
   return [
     "This round the players declared:",
     ...actions.map((a) => `- ${a.character}: ${a.text}`),
     "",
     "Decide which of these actions are risky or uncertain enough to need an ability check. Ordinary actions need no check.",
+    ...(dice === "big"
+      ? ["Only call for a check at a genuinely pivotal moment: where failure would change the course of the story (a confrontation, a big gamble, real danger). Everyday actions, conversations and most rounds need no check. At most one check this round."]
+      : []),
     "At most one check per character, and only for characters listed above. Choose the most fitting ability (STR, DEX, CON, INT, WIS, CHA).",
     "DC guide: 5 very easy, 10 easy, 12-13 typical, 15 hard, 20 very hard, 25 nearly impossible.",
     "Most checks should be DC 10-15. Use 20 only for feats that would challenge a trained expert, and 25 almost never.",
@@ -112,7 +115,7 @@ export function adjudicateTask(actions: ActionInput[]): string {
   ].join("\n");
 }
 
-export function resolveTask(input: ResolveInput): string {
+export function resolveTask(input: ResolveInput, dice: DiceMode = "normal"): string {
   const lines = ["This round:", ...input.actions.map((a) => `- ${a.character}: ${a.text}`)];
   if (input.skipped.length) lines.push(`(${input.skipped.join(", ")} did not act this round; keep them in the scene but passive.)`);
   if (input.rolls.length) {
@@ -124,6 +127,9 @@ export function resolveTask(input: ResolveInput): string {
   }
   lines.push(
     "",
+    ...(dice === "off"
+      ? ["There are no dice in this game. Decide outcomes fairly from the situation and the characters' abilities and condition. Plans can fail, people can say no, and actions have consequences; not everything succeeds."]
+      : []),
     "Narrate what happens, honouring every result. End by inviting the players to act.",
     "If an action says a hero asks, talks or chats without giving their actual words, do not write those words for them: have the other person respond and end your narration with that person asking the hero, in quotes, what they want to say or know.",
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",

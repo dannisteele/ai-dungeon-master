@@ -63,11 +63,11 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
 
   return {
     async adjudicate(ctx, actions) {
-      const out = await callStructured(buildMessages(ctx, rules, adjudicateTask(actions), budgetTokens), AdjudicateSchema, adjudicateFormat);
+      const out = await callStructured(buildMessages(ctx, rules, adjudicateTask(actions, ctx.campaign.dice), budgetTokens), AdjudicateSchema, adjudicateFormat);
       return out.checks;
     },
     resolve(ctx, input, stream) {
-      return callStructured(buildMessages(ctx, rules, resolveTask(input), budgetTokens), ResolveParseSchema, resolveFormat, stream);
+      return callStructured(buildMessages(ctx, rules, resolveTask(input, ctx.campaign.dice), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     opening(ctx, stream) {
       return callStructured(buildMessages(ctx, rules, openingTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);

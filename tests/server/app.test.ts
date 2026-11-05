@@ -132,6 +132,20 @@ describe("API", () => {
     expect((await req("DELETE", `/api/campaigns/${campaign.id}`)).statusCode).toBe(404);
   });
 
+  it("changes dice and realism settings, but not while the DM is writing", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    const r = await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "off" });
+    expect(r.json().campaign).toMatchObject({ dice: "off", realism: "fantastical" });
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { realism: "grounded" })).json().campaign)
+      .toMatchObject({ dice: "off", realism: "grounded" });
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, {})).statusCode).toBe(400);
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "sometimes" })).statusCode).toBe(400);
+    expect((await req("PATCH", "/api/campaigns/999/settings", { dice: "big" })).statusCode).toBe(404);
+    store.updateCampaign(campaign.id, { roundState: "resolving" });
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "big" })).statusCode).toBe(409);
+  });
+
   it("spends ability points", async () => {
     const { req } = await start();
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "classic-fantasy" } })).json();
