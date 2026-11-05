@@ -41,6 +41,21 @@ Check "Run passes -- arguments to npm.cmd" { (Run npm.cmd --version) -match "^\d
 Check "Run throws on failure" { try { Run git definitely-not-a-command 2>$null; $false } catch { $true } }
 Check "Test-Url is false when nothing listens" { -not (Test-Url "http://localhost:3999/api/session") }
 
+# 2b. Ensure-Ollama starts "ollama serve" (here a stand-in that answers like Ollama) and waits
+#     for it. Run in a child process: on failure Ensure-Ollama exits the whole script.
+$env:Path = "$repo\.github\scripts\fake-ollama;$env:Path"
+# Output goes to a file, not a pipe: the started server inherits the handle, and reading a pipe
+# would wait for it to close (i.e. for Ollama to exit). Wait for this PowerShell only.
+$ollamaLog = Join-Path $env:RUNNER_TEMP "ensure-ollama.txt"
+$child = Start-Process powershell -PassThru -NoNewWindow -RedirectStandardOutput $ollamaLog -ArgumentList @(
+  "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ". '$repo\windows\common.ps1'; Ensure-Ollama; 'started'")
+if (-not $child.WaitForExit(60000)) { $child.Kill() }
+$ollamaOut = Get-Content $ollamaLog -Raw
+Check "Ensure-Ollama starts ollama serve and waits for it" { $ollamaOut -match "started" }
+Check "Ollama stays up after that window closes" { Test-Url "http://localhost:11434/api/tags" }
+Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+
 # 3. The game starts the way start.ps1 starts it, and Test-Url sees it.
 $server = Start-Process npm.cmd -ArgumentList "start" -WorkingDirectory $repo -PassThru -WindowStyle Hidden
 try {
