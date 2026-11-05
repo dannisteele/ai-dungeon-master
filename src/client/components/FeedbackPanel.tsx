@@ -10,6 +10,7 @@ export function FeedbackPanel({ screen, campaignId, characterId, onClose }: {
   const [kind, setKind] = useState<Kind>("bug");
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
+  const [includeStory, setIncludeStory] = useState(false);
   const [state, setState] = useState<State>({ kind: "editing" });
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function FeedbackPanel({ screen, campaignId, characterId, onClose }: {
     if (!title.trim()) { setState({ kind: "editing", error: "Give it a short title." }); return; }
     setState({ kind: "sending" });
     try {
-      await api.sendFeedback({ kind, title, details, screen, campaignId, characterId: characterId ?? undefined });
+      await api.sendFeedback({ kind, title, details, screen, campaignId, characterId: characterId ?? undefined, includeStory });
       setState({ kind: "sent" });
     } catch (err) {
       setState({ kind: "editing", error: (err as Error).message });
@@ -58,7 +59,12 @@ export function FeedbackPanel({ screen, campaignId, characterId, onClose }: {
                 <span>{kind === "bug" ? "Tell me more: what did you do, and what happened?" : "Tell me more"}</span>
                 <textarea className="input" rows={5} maxLength={4000} value={details} onChange={(e) => setDetails(e.target.value)} />
               </label>
-              {kind === "bug" && campaignId !== undefined && <p className="muted small" style={{ margin: 0 }}>The last few moments of the story are sent along too, to help track it down.</p>}
+              {campaignId !== undefined && (
+                <label className="row check-row">
+                  <input type="checkbox" checked={includeStory} onChange={(e) => setIncludeStory(e.target.checked)} />
+                  <span>Include the story so far (this will be public on GitHub)</span>
+                </label>
+              )}
               {state.kind === "editing" && state.error && <p className="error">{state.error}</p>}
               <div className="row">
                 <button className="btn btn-primary" type="submit" disabled={state.kind === "sending"}>{state.kind === "sending" ? "Sending…" : "Send"}</button>

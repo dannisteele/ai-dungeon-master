@@ -42,6 +42,10 @@ export function createGitHubIssueFiler(opts: { token: string; repo: string; fetc
 
 export interface FeedbackContext {
   kind: FeedbackKind;
+  /** The player ticked "Include the story so far". Reports are public, so story text is opt-in. */
+  includeStory: boolean;
+  /** The DM's memory of the story so far, shown when includeStory. */
+  summary?: string;
   details: string;
   screen: string;
   appVersion: string;
@@ -83,13 +87,16 @@ export function buildIssueBody(ctx: FeedbackContext): string {
     ["App version", ctx.appVersion],
     ["Model", ctx.model],
     // Never "#2": GitHub would turn it into a link to issue or PR 2 and show that title instead.
-    ["Campaign", ctx.campaign && `${ctx.campaign.title} (campaign ${ctx.campaign.id}), ${ctx.campaign.round === 0 ? "not started yet" : `round ${ctx.campaign.round}`}${ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
+    ["Campaign", ctx.campaign && `${ctx.campaign.title} (campaign ${ctx.campaign.id}), ${ctx.campaign.round === 0 ? "not started yet" : `round ${ctx.campaign.round}`}${ctx.includeStory && ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
     ["Setting", ctx.campaign?.setting],
     ["Playing as", ctx.character?.name],
     ["Device", ctx.userAgent],
   ];
   for (const [label, value] of facts) if (value) parts.push(`- **${label}:** ${value}`);
-  if (ctx.kind === "bug" && ctx.events.length) {
+  if (ctx.includeStory && ctx.summary?.trim()) {
+    parts.push("", "**Story so far**", "", ...ctx.summary.trim().split(/\n+/).map((l) => `> ${l}`));
+  }
+  if (ctx.includeStory && ctx.events.length) {
     parts.push("", "**Recent story**", "", ...storyLines(ctx.events, ctx.characters).map((l) => `> ${l.replace(/\n+/g, " ")}`));
   }
   parts.push("", "</details>");

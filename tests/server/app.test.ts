@@ -239,6 +239,7 @@ describe("API", () => {
 
     const r = await req("POST", "/api/feedback", {
       kind: "bug", title: "Dice froze", details: "The die never stopped.", screen: "play", campaignId: campaign.id, characterId: character.id,
+      includeStory: true,
     });
     expect(r.json()).toEqual({ url: "https://github.com/x/y/issues/7" });
     expect(filed).toHaveLength(1);
@@ -249,6 +250,19 @@ describe("API", () => {
     expect(filed[0].body).toContain("**Model:** qwen3.6:27b");
     expect(filed[0].body).toContain("> [round 1] **Wren:** I open the crypt.");
     expect(filed[0].body).toContain("> [round 1] **DM:** The door groans.");
+
+    await req("POST", "/api/feedback", { kind: "bug", title: "Again", details: "", screen: "play", campaignId: campaign.id });
+    expect(filed[1].body).not.toContain("I open the crypt");
+    expect(filed[1].body).toContain("**Setting:** Gothic Horror");
+  });
+
+  it("files a lobby report with the story box ticked, without a story", async () => {
+    const filed: NewIssue[] = [];
+    const issues: IssueFiler = { file: async (i) => { filed.push(i); return { number: 9, url: "u" }; } };
+    const { req } = await start(fakeDm(), undefined, issues);
+    expect((await req("POST", "/api/feedback", { kind: "idea", title: "Hi", details: "", screen: "lobby", includeStory: true })).statusCode).toBe(200);
+    expect(filed[0].body).not.toContain("Story so far");
+    expect(filed[0].body).not.toContain("Recent story");
   });
 
   it("files ideas without the story, and validates the form", async () => {

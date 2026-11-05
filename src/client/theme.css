@@ -42,6 +42,8 @@ button { font: inherit; cursor: pointer; }
 label.stack > span { color: var(--muted); font-size: .9rem; }
 .field { display: block; }
 .update-note { color: var(--gold); }
+.check-row { flex-wrap: nowrap; gap: .6rem; align-items: flex-start; font-size: .9rem; color: var(--muted); cursor: pointer; }
+.check-row input { margin-top: .25em; accent-color: var(--gold); }
 .card-tools { gap: 1rem; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: .85rem; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .link-btn:hover { color: var(--text); }

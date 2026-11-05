@@ -35,11 +35,12 @@ export function campaignInputFrom(req: NewCampaignRequest, adventures: Adventure
 }
 
 /** A short human name for where a campaign came from, e.g. "Sci-fi Derelict". */
-export function settingLabel(c: Pick<Campaign, "setting" | "pitch" | "outline">): string {
+export function settingLabel(c: Pick<Campaign, "setting" | "pitch" | "outline">, opts: { includePitch: boolean } = { includePitch: true }): string {
   if (c.outline) return `Prepared adventure: ${c.outline.title}`;
   const preset = PRESETS.find((p) => p.setting === c.setting);
   if (preset) return preset.name;
   const pitch = c.pitch.trim().replace(/\s+/g, " ");
+  if (pitch && !opts.includePitch) return "Own pitch";
   if (pitch) return `Own pitch: "${pitch.length > 120 ? `${pitch.slice(0, 120)}…` : pitch}"`;
   return c.setting;
 }
