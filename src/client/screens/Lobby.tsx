@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CampaignSummary } from "../../shared/types";
 import { FeedbackPanel } from "../components/FeedbackPanel";
+import { ModelPicker } from "../components/ModelPicker";
 import { api } from "../lib/api";
 import { useFeedbackEnabled } from "../lib/feedback";
 import { go } from "../lib/router";
@@ -70,7 +71,8 @@ export function Lobby() {
           );
         })}
       </div>
-      <footer className="row spread" style={{ marginTop: "3rem" }}>
+      <div style={{ marginTop: "3rem", maxWidth: 420 }}><ModelPicker /></div>
+      <footer className="row spread">
         <p className="muted small" style={{ flex: 1, margin: 0 }}>{packNote ?? "Done for the evening? Free up the computer's memory."}</p>
         <button className="btn btn-ghost" onClick={packUp} disabled={packing}>{packing ? "Packing up…" : "🕯 Pack up for the night"}</button>
       </footer>

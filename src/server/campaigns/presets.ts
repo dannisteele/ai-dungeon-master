@@ -10,6 +10,8 @@ export const PRESETS: Preset[] = [
     setting: "Swashbuckling age of sail: pirate havens, navy hunters, sea monsters, cursed gold and island mysteries." },
   { id: "scifi-derelict", name: "Sci-fi Derelict", blurb: "A dead ship drifts in the dark. Something aboard is still awake.",
     setting: "Tense science fiction: a salvage crew boards a derelict starship far from help. Failing systems, strange tech, and something alien." },
+  { id: "victorian-civil-service", name: "Her Majesty's Civil Service", blurb: "Ledgers, sealing wax and forms in triplicate. Whitehall awaits.",
+    setting: "Dry comic Victorian bureaucracy, London in the 1850s: the heroes are junior clerks in a Whitehall ministry of gaslit corridors, towering ledgers, pneumatic tubes, sealing wax and forms in triplicate. Rival departments, pompous Permanent Secretaries, pedantic regulations and scandals waiting to be buried. Stakes are careers, reputations and the public good; cleverness, procedure and persuasion matter more than swords, and violence is rare and shocking." },
 ];
 
 export function campaignInputFrom(req: NewCampaignRequest, adventures: AdventureOutline[]): NewCampaignInput | { error: string } {

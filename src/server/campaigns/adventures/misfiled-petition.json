@@ -1,0 +1,24 @@
+{
+  "id": "misfiled-petition",
+  "title": "The Misfiled Petition",
+  "setting": "Dry comic Victorian bureaucracy, London in 1858: gaslit Whitehall ministries, towering ledgers, pneumatic tubes, sealing wax and forms in triplicate. Cleverness, procedure and persuasion matter more than swords.",
+  "pitch": "A petition signed by four hundred residents of Lambeth, warning that the new Southwark railway viaduct is built on rotten foundations, has vanished somewhere inside the Board of Works. The Minister signs the viaduct's final approval at noon on Friday. You are junior clerks with three days, no authority, and a great deal of paperwork.",
+  "goal": "Find the lost petition and get it in front of the Minister before he signs at noon on Friday.",
+  "villain": "Mr. Ambrose Pettigrew-Lyle, Assistant Under-Secretary, impeccably polite and secretly a shareholder in the railway company, who has been quietly 'losing' every complaint about the viaduct.",
+  "locations": [
+    "The Junior Clerks' Room, cold, cramped and ruled by the Chief Clerk's rota",
+    "The Registry, where every document is logged, docketed and stamped",
+    "The Dead Letter Room in the basement, where misdirected papers go to be forgotten",
+    "Pettigrew-Lyle's office, all mahogany, sherry and locked drawers",
+    "The Lambeth riverside and the half-built viaduct",
+    "The Minister's anteroom on Friday morning, guarded by an implacable private secretary"
+  ],
+  "beats": [
+    "A frantic Lambeth curate arrives asking after the petition; the Registry insists it was never received",
+    "The paper trail: a docket number, a forged initial and a pneumatic tube that should not have been used",
+    "The Dead Letter Room yields copies of other buried complaints, all about the same viaduct",
+    "Pettigrew-Lyle notices the clerks' interest and offers promotion, then threatens dismissal",
+    "A visit to the viaduct shows the cracks are real and the danger is close",
+    "Friday morning: get past the private secretary and lay the evidence before the Minister before noon strikes"
+  ]
+}

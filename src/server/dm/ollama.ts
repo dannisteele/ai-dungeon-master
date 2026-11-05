@@ -12,19 +12,25 @@ export interface ChatClient {
   chat(req: ChatRequest): Promise<string>;
   /** Ask Ollama to drop the model from memory now (keep_alive: 0). */
   unload(): Promise<void>;
+  /** The model chat() and unload() use. */
+  getModel(): string;
+  setModel(model: string): void;
+  /** Names of the models Ollama has downloaded. */
+  installedModels(): Promise<string[]>;
 }
 
 export class OllamaError extends Error {}
 
 export function createOllamaClient(opts: { url: string; model: string; keepAlive: string; fetchImpl?: typeof fetch }): ChatClient {
   const fetchImpl = opts.fetchImpl ?? fetch;
+  let model = opts.model;
 
-  async function post(path: string, body: object, signal?: AbortSignal): Promise<Response> {
+  async function post(path: string, body?: object, signal?: AbortSignal): Promise<Response> {
     let res: Response;
     try {
-      res = await fetchImpl(`${opts.url}${path}`, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal,
-      });
+      res = await fetchImpl(`${opts.url}${path}`, body === undefined
+        ? { method: "GET", signal }
+        : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal });
     } catch (e) {
       throw new OllamaError(`Could not reach Ollama at ${opts.url}: ${(e as Error).message}`);
     }
@@ -53,7 +59,7 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
       });
       try {
         const res = await raceTimeout(post("/api/chat", {
-          model: opts.model, messages, format, stream: true, think: false, keep_alive: opts.keepAlive,
+          model, messages, format, stream: true, think: false, keep_alive: opts.keepAlive,
           options: { temperature: 0.8, num_ctx: 16384 },
         }, controller.signal), firstTokenTimeoutMs);
         if (!res.body) throw new OllamaError("Ollama sent an empty response");
@@ -90,7 +96,16 @@ export function createOllamaClient(opts: { url: string; model: string; keepAlive
     },
 
     async unload() {
-      await post("/api/generate", { model: opts.model, keep_alive: 0, stream: false }, AbortSignal.timeout(15_000));
+      await post("/api/generate", { model, keep_alive: 0, stream: false }, AbortSignal.timeout(15_000));
+    },
+
+    getModel: () => model,
+    setModel(m) { model = m; },
+
+    async installedModels() {
+      const res = await post("/api/tags", undefined, AbortSignal.timeout(15_000));
+      const data = (await res.json().catch(() => ({}))) as { models?: { name: string }[] };
+      return (data.models ?? []).map((m) => m.name).sort();
     },
   };
 }

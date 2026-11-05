@@ -1,0 +1,3 @@
+# Keep the Windows launchers CRLF in the repo itself, so a single .bat downloaded
+# straight from GitHub works too.
+*.bat -text

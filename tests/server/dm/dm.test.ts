@@ -17,6 +17,9 @@ class FakeChat implements ChatClient {
     return next;
   }
   async unload() {}
+  getModel() { return "m"; }
+  setModel() {}
+  async installedModels() { return ["m"]; }
 }
 
 const ctx: DmContext = {

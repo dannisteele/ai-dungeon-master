@@ -6,6 +6,7 @@ import { loadConfig } from "./config";
 import { createDungeonMaster } from "./dm/dm";
 import { createOllamaClient } from "./dm/ollama";
 import { lightRules } from "./rules/engine";
+import { MODEL_SETTING } from "./routes/api";
 import { createStore } from "./store/store";
 
 try { process.loadEnvFile(); } catch { /* no .env file: rely on the environment */ }
@@ -13,9 +14,11 @@ try { process.loadEnvFile(); } catch { /* no .env file: rely on the environment 
 const config = loadConfig();
 const store = createStore(config.dbPath);
 const serverSecret = loadOrCreateServerSecret(join(dirname(config.dbPath), "cookie-secret"));
-const chat = createOllamaClient({ url: config.ollamaUrl, model: config.ollamaModel, keepAlive: config.ollamaKeepAlive });
+// A model picked in the app wins over OLLAMA_MODEL, which is only the starting default.
+const model = store.getSetting(MODEL_SETTING) ?? config.ollamaModel;
+const chat = createOllamaClient({ url: config.ollamaUrl, model, keepAlive: config.ollamaKeepAlive });
 const dm = createDungeonMaster({ chat, rules: lightRules, budgetTokens: config.promptBudgetTokens });
-const { app, turns } = await buildApp({ config, store, dm, chat, serverSecret, serveClient: process.env.NODE_ENV === "production" });
+const { app, turns } = await buildApp({ config, store, dm, chat, serverSecret, serveClient: process.env.NODE_ENV === "production" || process.argv.includes("--production") });
 
 turns.recoverInterrupted();
 await app.listen({ port: config.port, host: config.host });
@@ -23,7 +26,7 @@ await app.listen({ port: config.port, host: config.host });
 const lan = Object.values(networkInterfaces()).flat()
   .filter((n) => n && n.family === "IPv4" && !n.internal)
   .map((n) => `  http://${n!.address}:${config.port}`);
-console.log(`\n🕯  The table is open.\n  http://localhost:${config.port}\n${lan.join("\n")}\n  Dungeon Master: ${config.ollamaModel} at ${config.ollamaUrl}\n`);
+console.log(`\n🕯  The table is open.\n  http://localhost:${config.port}\n${lan.join("\n")}\n  Dungeon Master: ${chat.getModel()} at ${config.ollamaUrl}\n`);
 
 let shuttingDown = false;
 const shutdown = async () => {

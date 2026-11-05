@@ -23,6 +23,19 @@ A tabletop adventure for your home network. You and your party say what your her
    The server prints addresses like `http://192.168.1.20:3000`. Open that on any phone or laptop on your Wi-Fi.
    The first time, macOS asks whether to allow incoming connections. Click **Allow**.
 
+## Setup (Windows)
+
+For someone who'd rather not touch a terminal:
+
+1. Download **`windows/Setup Dungeon Master.bat`** from this repo on GitHub (open the file, then the **Download raw file** button) and double-click it. If Windows says "Windows protected your PC", click **More info → Run anyway**.
+2. It installs Node, Git and Ollama (click **Yes** if Windows asks), downloads the game to `%USERPROFILE%\ai-dungeon-master`, and asks for a table password and, optionally, the feedback token.
+3. It downloads the Qwen 9B model (about 7 GB), plus Qwen 27B (about 17 GB) if the laptop has 32 GB of memory or more. This is the slow part.
+4. Two shortcuts appear on the desktop:
+   - **Dungeon Master** starts the game and opens it in the browser. Leave its window open while playing; close it to stop. The first time, Windows asks whether to allow it on the network: click **Allow** if friends will join from their phones.
+   - **Check for Updates** shows what's new on GitHub and, if you say yes, closes the game, installs the update and starts it again. If an update fails it puts the old version back.
+
+Running the setup again is safe: it skips whatever is already done.
+
 ## Playing
 
 - **New campaign**: choose a setting, write your own pitch, or pick a prepared adventure. Party = play together, Solo = just you.
@@ -30,6 +43,7 @@ A tabletop adventure for your home network. You and your party say what your her
 - **Begin**, then each round type what you do. The DM asks for checks when things are risky; press **Roll d20**.
 - **Go ahead without me** / **Don't wait for …** keeps the game moving.
 - **Try again** appears if the DM gets stuck (e.g. Ollama was closed).
+- **Dungeon Master's brain** (bottom of the lobby) switches between the models you've downloaded, e.g. Qwen 27B for the best storytelling or Qwen 9B for speed. The choice is remembered, and from then on overrides `OLLAMA_MODEL` in `.env`. It can't be changed while the DM is mid-sentence.
 - **Pack up for the night** (bottom of the lobby) unloads the model to free memory. Ollama also unloads it after `OLLAMA_KEEP_ALIVE` (default 30 minutes) of quiet.
 - **Nearby**: the people in the scene appear above the action box, coloured by attitude (red hostile, amber wary, grey neutral, green friendly) with their condition. Tap one for Attack / Talk to / Watch, which fills in your action so names are never misspelt.
 - **When the whole party falls**, play stops with a choice: **Revive** (everyone wakes at half HP and the Dungeon Master decides how you survived) or **Start a new campaign**.
