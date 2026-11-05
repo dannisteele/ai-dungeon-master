@@ -4,6 +4,8 @@ import { ActionBar } from "../components/ActionBar";
 import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
 import { FeedbackPanel } from "../components/FeedbackPanel";
+import { MoreMenu } from "../components/MoreMenu";
+import { PeoplePanel } from "../components/PeoplePanel";
 import { RecapPanel } from "../components/RecapPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { Story } from "../components/Story";
@@ -18,6 +20,8 @@ export function Play({ campaignId }: { campaignId: number }) {
   const [recapOpen, setRecapOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // null: closed; "": open at the top; a name: open at that person's card.
+  const [peopleFocus, setPeopleFocus] = useState<string | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
   const [diceQueue, setDiceQueue] = useState<StoredRoll[]>([]);
   const lastSeenRoll = useRef<number | null>(null);
@@ -63,15 +67,18 @@ export function Play({ campaignId }: { campaignId: number }) {
       <div className="play-main">
         <header className="play-header">
           <a href="#/" className="muted header-back">← Tavern</a>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="header-title" style={{ flex: 1, minWidth: 0 }}>
             <p className="eyebrow" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {snapshot.campaign.sceneTitle || snapshot.campaign.title}
             </p>
           </div>
           <span className={connected ? "dot ok" : "dot"} title={connected ? "Connected" : "Reconnecting…"} />
           <button className="btn btn-ghost header-btn" aria-label="Story so far" onClick={() => setRecapOpen(true)}><span className="label-long">Story so far</span><span className="label-short">Recap</span></button>
-          <button className="btn btn-ghost header-btn" aria-label="Table settings" onClick={() => setSettingsOpen(true)}><span className="label-long">Settings</span><span className="label-short">⚙</span></button>
-          {feedbackEnabled && <button className="btn btn-ghost header-btn" aria-label="Send feedback" onClick={() => setFeedbackOpen(true)}><span className="label-long">Feedback</span><span className="label-short">💬</span></button>}
+          <button className="btn btn-ghost header-btn" aria-label="People you've met" onClick={() => setPeopleFocus("")}><span className="label-long">People</span><span className="label-short">👥</span></button>
+          <MoreMenu items={[
+            { label: "⚙ Table settings", onSelect: () => setSettingsOpen(true) },
+            ...(feedbackEnabled ? [{ label: "💬 Send feedback", onSelect: () => setFeedbackOpen(true) }] : []),
+          ]} />
           <button className="btn btn-ghost header-btn sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
@@ -79,10 +86,13 @@ export function Play({ campaignId }: { campaignId: number }) {
             <Story entries={buildStory(visibleEvents, snapshot.characters)} streaming={current ? "" : streaming} />
           </div>
         </div>
-        <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} rollingIds={rollingIds} />
+        <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} rollingIds={rollingIds} onAbout={setPeopleFocus} />
       </div>
       <CharacterSheet snapshot={snapshot} me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />
       {recapOpen && <RecapPanel campaignId={campaignId} onClose={() => setRecapOpen(false)} />}
+      {peopleFocus !== null && (
+        <PeoplePanel campaignId={campaignId} people={snapshot.people} focus={peopleFocus || undefined} onClose={() => setPeopleFocus(null)} />
+      )}
       {settingsOpen && <SettingsPanel campaign={snapshot.campaign} onClose={() => setSettingsOpen(false)} />}
       {feedbackOpen && <FeedbackPanel screen="play" campaignId={campaignId} characterId={myId} onClose={() => setFeedbackOpen(false)} />}
       {current && (

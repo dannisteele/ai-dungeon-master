@@ -44,6 +44,12 @@ label.stack > span { color: var(--muted); font-size: .9rem; }
 .update-note { color: var(--gold); }
 .setting-options > * + * { margin-top: .5rem; }
 .setting-choice { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; width: 100%; text-align: left; padding: .7rem .9rem; }
+.more-wrap { position: relative; flex-shrink: 0; }
+.more-menu { top: calc(100% + 6px); bottom: auto; left: auto; right: 0; min-width: 12rem; }
+.person-card[aria-current="true"] { border-color: var(--gold); }
+.person-chip { cursor: default; flex-shrink: 0; }
+.person-notes { color: var(--gold-bright); font-size: .95rem; }
+.npc-menu button:disabled { opacity: .45; cursor: default; }
 .check-row { flex-wrap: nowrap; gap: .6rem; align-items: flex-start; font-size: .9rem; color: var(--muted); cursor: pointer; }
 .check-row input { margin-top: .25em; accent-color: var(--gold); }
 .card-tools { gap: 1rem; }
@@ -155,6 +161,13 @@ label.stack > span { color: var(--muted); font-size: .9rem; }
   .header-btn { padding: .45em .7em; }
   .label-long { display: none; }
   .label-short { display: inline; }
+}
+
+/* Phones: the header's buttons leave no room for the scene title, so it gets its own line below them. */
+@media (max-width: 600px) {
+  .play-header { flex-wrap: wrap; row-gap: .35rem; }
+  .play-header .header-back { margin-right: auto; }
+  .play-header .header-title { order: 10; flex-basis: 100%; }
 }
 
 /* Dice */

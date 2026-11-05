@@ -37,6 +37,12 @@ const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
 const SettingsSchema = z.object({ dice: z.enum(DICE_MODES).optional(), realism: z.enum(REALISMS).optional() })
   .refine((v) => v.dice !== undefined || v.realism !== undefined, { message: "Nothing to change." });
+const PersonEditSchema = z.object({
+  about: z.string().trim().max(500).optional(),
+  notes: z.string().trim().max(500).optional(),
+  /** Hand the description back to the DM after the player edited it. */
+  letDmUpdate: z.literal(true).optional(),
+}).refine((v) => v.about !== undefined || v.notes !== undefined || v.letDmUpdate, { message: "Nothing to change." });
 const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
 
@@ -118,6 +124,23 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     store.updateCampaign(id, parsed.data);
     turns.broadcastSnapshot(id);
     return { campaign: store.getCampaign(id) };
+  });
+
+  app.patch<{ Params: { id: string; name: string } }>("/api/campaigns/:id/people/:name", async (req, reply) => {
+    const id = Number(req.params.id);
+    const campaign = store.getCampaign(id);
+    if (!campaign) return reply.code(404).send({ error: "No such campaign." });
+    const parsed = PersonEditSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    if ((AI_PHASES as readonly string[]).includes(campaign.roundState)) return reply.code(409).send(midSentence);
+    const { about, notes, letDmUpdate } = parsed.data;
+    // Editing the description locks it against the DM; "let the DM update this" unlocks it.
+    const found = store.updatePerson(id, req.params.name, {
+      about, notes, ...(about !== undefined ? { aboutEdited: true } : letDmUpdate ? { aboutEdited: false } : {}),
+    });
+    if (!found) return reply.code(404).send({ error: "Nobody by that name." });
+    turns.broadcastSnapshot(id);
+    return { people: store.getPeople(id) };
   });
 
   app.delete<{ Params: { id: string } }>("/api/campaigns/:id", async (req, reply) => {
