@@ -59,7 +59,7 @@ const clip = (s: string) => (s.length > MAX_LINE ? `${s.slice(0, MAX_LINE)}…` 
 
 /** The recent story as short lines, oldest first, for a bug report. */
 export function storyLines(events: StoredEvent[], characters: Pick<Character, "id" | "name">[]): string[] {
-  const name = (id: number) => characters.find((c) => c.id === id)?.name ?? `#${id}`;
+  const name = (id: number) => characters.find((c) => c.id === id)?.name ?? `hero ${id}`;
   return events.flatMap((e): string[] => {
     const at = `[round ${e.round}]`;
     switch (e.type) {
@@ -82,7 +82,8 @@ export function buildIssueBody(ctx: FeedbackContext): string {
     ["Screen", ctx.screen],
     ["App version", ctx.appVersion],
     ["Model", ctx.model],
-    ["Campaign", ctx.campaign && `${ctx.campaign.title} (#${ctx.campaign.id}), round ${ctx.campaign.round}${ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
+    // Never "#2": GitHub would turn it into a link to issue or PR 2 and show that title instead.
+    ["Campaign", ctx.campaign && `${ctx.campaign.title} (campaign ${ctx.campaign.id}), round ${ctx.campaign.round}${ctx.campaign.sceneTitle ? `, ${ctx.campaign.sceneTitle}` : ""}`],
     ["Playing as", ctx.character?.name],
     ["Device", ctx.userAgent],
   ];

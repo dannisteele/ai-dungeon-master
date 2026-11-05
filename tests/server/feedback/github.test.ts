@@ -15,6 +15,17 @@ describe("buildIssueBody", () => {
     expect(body).not.toContain("Campaign");
   });
 
+  it("never writes #number, which GitHub would turn into a link to another issue", () => {
+    const body = buildIssueBody({
+      ...ctx,
+      campaign: { id: 2, title: "Derelict", sceneTitle: "", round: 0 },
+      events: [{ id: 1, campaignId: 2, round: 1, createdAt: "", type: "action", characterId: 9, text: "I look." }],
+    });
+    expect(body).toContain("**Campaign:** Derelict (campaign 2), round 0");
+    expect(body).toContain("**hero 9:** I look.");
+    expect(body).not.toMatch(/#\d/);
+  });
+
   it("notes an empty description and flattens multi-line narration", () => {
     const body = buildIssueBody({
       ...ctx,
