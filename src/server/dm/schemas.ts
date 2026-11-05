@@ -39,6 +39,10 @@ export const KitSchema = z.object({
   })).min(1),
 });
 
-export const SummarySchema = z.object({ summary: z.string().trim().min(1) });
+export const SummarySchema = z.object({
+  summary: z.string().trim().min(1),
+  /** Refreshed People cards for those in the summarised rounds. */
+  people: z.array(z.object({ name: z.string().trim().min(1), about: z.string().trim().min(1).max(300) })).default([]),
+});
 
 export const toFormat = (schema: z.ZodType): object => z.toJSONSchema(schema, { io: "input" });

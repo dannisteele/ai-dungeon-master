@@ -1,9 +1,10 @@
 import { formatModifier } from "../../shared/abilities";
-import type { Campaign, Character, StoredEvent, Npc } from "../../shared/types";
+import type { Campaign, Character, Person, StoredEvent } from "../../shared/types";
 import type { Store } from "../store/store";
 
 export interface RoundTranscript { round: number; lines: string[] }
-export interface DmContext { campaign: Campaign; characters: Character[]; npcs: Npc[]; recentRounds: RoundTranscript[] }
+/** Everything the DM is shown. `people` is everyone met: present ones are Nearby, the rest are remembered. */
+export interface DmContext { campaign: Campaign; characters: Character[]; people: Person[]; recentRounds: RoundTranscript[] }
 
 export function transcriptFromEvents(events: StoredEvent[], characters: Character[]): RoundTranscript[] {
   const name = (id: number) => characters.find((c) => c.id === id)?.name ?? "Someone";
@@ -32,7 +33,7 @@ export function transcriptFromEvents(events: StoredEvent[], characters: Characte
           case "adjust_stat": lines.push(`[Sheet] ${op.character} ${op.stat} ${op.delta > 0 ? "+1" : "-1"}`); break;
           case "level_up": lines.push(`[Sheet] ${op.character} reaches a new level`); break;
           case "set_scene": lines.push(`[Scene] ${op.title}`); break;
-          case "npc": lines.push(`[NPC] ${op.name}: ${op.attitude}, ${op.condition}`); break;
+          case "npc": lines.push(`[NPC] ${op.name}: ${op.attitude}, ${op.condition}${op.about ? `. ${op.about}` : ""}`); break;
           case "npc_gone": lines.push(`[NPC] ${op.name} leaves`); break;
         }
         break;
@@ -49,10 +50,10 @@ export function buildContext(store: Store, campaignId: number, rounds = 10): DmC
   const campaign = store.getCampaign(campaignId);
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
   const characters = store.getCharacters(campaignId);
-  const npcs = store.getNpcs(campaignId);
+  const people = store.getPeople(campaignId);
   const events = campaign.roundNumber === 0 ? [] : store.getEvents(campaignId, {
     fromRound: Math.max(0, campaign.roundNumber - rounds),
     toRound: campaign.roundNumber - 1,
   });
-  return { campaign, characters, npcs, recentRounds: transcriptFromEvents(events, characters) };
+  return { campaign, characters, people, recentRounds: transcriptFromEvents(events, characters) };
 }

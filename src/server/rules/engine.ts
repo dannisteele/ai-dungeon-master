@@ -36,7 +36,7 @@ export const lightRules: RulesEngine = {
     '- {"op":"adjust_stat","character":NAME,"stat":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","delta":1 or -1}  (a permanent change; rare)',
     '- {"op":"level_up","character":NAME}',
     '- {"op":"set_scene","title":SHORT_PLACE_NAME}  (when the party arrives somewhere new)',
-    '- {"op":"npc","name":NAME,"attitude":"hostile"|"wary"|"neutral"|"friendly","condition":"unhurt"|"wounded"|"badly hurt"|"down"}  (add or update someone in the scene)',
+    '- {"op":"npc","name":NAME,"attitude":"hostile"|"wary"|"neutral"|"friendly","condition":"unhurt"|"wounded"|"badly hurt"|"down","about":ONE_OR_TWO_SENTENCES}  (add or update someone in the scene; "about" is optional: who they are, included when they first appear or something important changes)',
     '- {"op":"npc_gone","name":NAME}  (they leave or are no longer relevant)',
   ].join("\n"),
   opSchema: OpSchema,

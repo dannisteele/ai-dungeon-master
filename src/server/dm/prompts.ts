@@ -1,5 +1,5 @@
 import { formatModifier, modifier } from "../../shared/abilities";
-import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type DiceMode, type Npc, type Realism } from "../../shared/types";
+import { ABILITIES, type Ability, type Campaign, type Character, type Crit, type DiceMode, type Person, type Realism } from "../../shared/types";
 import type { RulesEngine } from "../rules/engine";
 import type { DmContext, RoundTranscript } from "./context";
 import type { ChatMessage } from "./ollama";
@@ -57,6 +57,7 @@ export function systemPrompt(rules: RulesEngine, realism: Realism = "fantastical
     "- When characters find, loot, buy or are given something they could carry (coins, keys, potions, notes, trophies), add_item it. When they use up, give away, throw, break or lose an item, remove_item it. Rest, potions and healing restore HP with heal.",
     "- Use set_scene whenever the party arrives somewhere new.",
     "- Keep the Nearby list true: when a notable NPC or group appears, add them with an npc op; when their attitude or condition changes (an attack lands, they are persuaded, they flee), update them; when they leave, npc_gone them. Put set_scene before npc ops when the party moves.",
+    "- People you have met must stay consistent with their cards (Nearby and People you have met). Player's notes are the truth: never contradict them.",
     "- Use characters' exact names. Only remove items a character actually has (see the party sheet).",
     "- Only remove items when the story takes, uses up, breaks or loses them. Downed or dead characters keep their belongings unless someone takes them.",
     tone.items,
@@ -93,9 +94,47 @@ export function partyBlock(chars: Character[]): string {
   return ["Party (authoritative character sheets):", ...lines].join("\n");
 }
 
-export function nearbyBlock(npcs: Npc[]): string {
-  if (npcs.length === 0) return "Nearby: nobody notable.";
-  return ["Nearby (authoritative):", ...npcs.map((n) => `- ${n.name}: ${n.attitude}, ${n.condition}`)].join("\n");
+/** Limits that keep people cards from crowding recent story out of the prompt (see the design, §5.4). */
+const PERSON_LINE_MAX = 400;
+const NEARBY_MAX = 3000;
+const MET_PEOPLE_MAX = 12;
+const MET_MAX = 2000;
+
+const cut = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
+/** Joins lines under a heading, stopping before the block would pass `max` characters. */
+function cappedBlock(heading: string, lines: string[], max: number): string {
+  let out = heading;
+  for (const line of lines) {
+    if (out.length + 1 + line.length > max) break;
+    out += `\n${line}`;
+  }
+  return out;
+}
+
+const cardText = (p: Person) =>
+  [p.about && `About: ${p.about}`, p.notes && `Player's notes: ${p.notes}`].filter(Boolean).join(" ");
+
+/** Who is in the scene, with their cards. */
+export function nearbyBlock(people: Person[]): string {
+  const here = people.filter((p) => p.present);
+  if (here.length === 0) return "Nearby: nobody notable.";
+  const lines = here.map((p) => {
+    const card = cardText(p);
+    return cut(`- ${p.name}: ${p.attitude}, ${p.condition}${card ? `. ${card}` : ""}`, PERSON_LINE_MAX);
+  });
+  return cappedBlock("Nearby (authoritative):", lines, NEARBY_MAX);
+}
+
+/** People met before who aren't here now, most recently seen first, so they stay in character. */
+export function metBlock(people: Person[]): string {
+  const away = people.filter((p) => !p.present).slice(0, MET_PEOPLE_MAX);
+  if (away.length === 0) return "";
+  const lines = away.map((p) => {
+    const card = [p.about, p.notes && `Player's notes: ${p.notes}`].filter(Boolean).join(" ");
+    return cut(`- ${p.name}: ${card || "(no description yet)"}`, PERSON_LINE_MAX);
+  });
+  return cappedBlock("People you have met (not here now):", lines, MET_MAX);
 }
 
 export function adjudicateTask(actions: ActionInput[], dice: DiceMode = "normal"): string {
@@ -135,6 +174,7 @@ export function resolveTask(input: ResolveInput, dice: DiceMode = "normal"): str
     "Only call a roll a natural 20 or natural 1 when the dice results above say so.",
     'Then check your narration line by line and put every wound, healing, item gained or lost, change of location, and every person or group in the scene who appears, is hurt, changes attitude or leaves into "changes". A FAILURE in a fight or against a hazard normally means a damage op for that character.',
     "damage and heal ops are only for the heroes; when an NPC is hurt or healed, update their condition with an npc op instead.",
+    'When someone notable first appears, include "about" in their npc op: who they are in one or two sentences (role, background, what they want, how they relate to the heroes). Update "about" when something important changes about them or their relationship with the heroes. Keep it under 300 characters.',
     "npc ops are only for non-player characters, never the heroes. Anyone present whom you name and who is not listed under Nearby must be added with an npc op before you can update them; only npc_gone someone who is listed under Nearby.",
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}, e.g. "changes": [{"op":"damage","character":"<name>","amount":4},{"op":"npc","name":"<npc name>","attitude":"hostile","condition":"wounded"},{"op":"add_item","character":"<name>","name":"<item name>","description":"<short description>","qty":1}]. Leave changes empty only if nothing changed for the heroes or the people nearby.',
   );
@@ -145,6 +185,7 @@ export function openingTask(): string {
   return [
     "Begin the adventure. Introduce the party in the opening scene in 2-4 short paragraphs and end with a clear prompt for them to act.",
     "Include a set_scene op naming the opening location, and an npc op for each notable non-player character or group present (never the heroes). Do not add items: the characters already have their starting kits.",
+    'Give each npc op an "about": who they are in one or two sentences (role, background, what they want, how they relate to the heroes), under 300 characters.',
     'Reply as JSON: {"narration": "<story text>", "changes": [<ops>]}.',
   ].join("\n");
 }
@@ -175,7 +216,7 @@ export function kitMessages(input: { name: string; concept: string; setting: str
   ];
 }
 
-export function summaryMessages(oldSummary: string, rounds: RoundTranscript[]): ChatMessage[] {
+export function summaryMessages(oldSummary: string, rounds: RoundTranscript[], people: { name: string; about: string }[] = []): ChatMessage[] {
   return [
     { role: "system", content: "You keep the story-so-far notes for a tabletop roleplaying campaign. Always reply with a single JSON object and nothing else." },
     {
@@ -186,7 +227,14 @@ export function summaryMessages(oldSummary: string, rounds: RoundTranscript[]): 
         `New events:\n${rounds.map((r) => r.lines.join("\n")).join("\n\n")}`,
         "",
         "Rewrite the story-so-far in at most 300 words. Keep names, places, unresolved threads, promises, debts and important items.",
-        'Reply as JSON: {"summary": "<text>"}.',
+        ...(people.length
+          ? [
+            "",
+            `People in these events, with their current cards:\n${people.map((p) => `- ${p.name}: ${p.about || "(no description yet)"}`).join("\n")}`,
+            "Rewrite each card so it reflects what is now known: who they are and how they relate to the heroes, under 300 characters.",
+            'Reply as JSON: {"summary": "<text>", "people": [{"name": "<name exactly as above>", "about": "<card>"}]}.',
+          ]
+          : ['Reply as JSON: {"summary": "<text>"}.']),
       ].join("\n"),
     },
   ];
@@ -198,7 +246,8 @@ export function buildMessages(ctx: DmContext, rules: RulesEngine, task: string, 
   const render = () => [
     campaignBlock(ctx.campaign),
     partyBlock(ctx.characters),
-    nearbyBlock(ctx.npcs),
+    nearbyBlock(ctx.people),
+    metBlock(ctx.people),
     ctx.campaign.summary ? `Story so far:\n${ctx.campaign.summary}` : "",
     rounds.length ? `Recent rounds:\n${rounds.map((r) => r.lines.join("\n")).join("\n\n")}` : "",
     task,

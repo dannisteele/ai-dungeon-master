@@ -19,7 +19,11 @@ export const OpSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("adjust_stat"), character: name, stat: z.enum(ABILITIES), delta: z.union([z.literal(-1), z.literal(1)]) }),
   z.object({ op: z.literal("level_up"), character: name }),
   z.object({ op: z.literal("set_scene"), title: z.string().trim().min(1).max(80) }),
-  z.object({ op: z.literal("npc"), name, attitude: z.enum(ATTITUDES), condition: z.enum(CONDITIONS) }),
+  z.object({
+    op: z.literal("npc"), name, attitude: z.enum(ATTITUDES), condition: z.enum(CONDITIONS),
+    /** Who they are, for their People card; optional, so most updates leave the card alone. */
+    about: z.string().trim().min(1).max(300).optional(),
+  }),
   z.object({ op: z.literal("npc_gone"), name }),
 ]) satisfies z.ZodType<Op>;
 
@@ -104,7 +108,7 @@ export function applyOps(characters: Character[], rawOps: unknown[], npcs: Npc[]
         result.rejected.push({ op, reason: `"${op.name}" is a hero, not an NPC` });
         continue;
       }
-      const npc: Npc = { name: op.name, attitude: op.attitude, condition: op.condition };
+      const npc: Npc = { name: op.name, attitude: op.attitude, condition: op.condition, ...(op.about ? { about: op.about } : {}) };
       const at = result.npcs.findIndex((n) => sameName(n.name, op.name));
       if (at >= 0) result.npcs[at] = npc;
       else if (result.npcs.length >= MAX_NPCS) { result.rejected.push({ op, reason: `too many NPCs in the scene (max ${MAX_NPCS})` }); continue; }
