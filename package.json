@@ -11,7 +11,7 @@
     "dev": "tsx watch src/server/main.ts",
     "dev:client": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx src/server/main.ts",
+    "start": "tsx src/server/main.ts --production",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts"
   },
