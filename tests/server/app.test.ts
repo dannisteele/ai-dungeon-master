@@ -37,7 +37,7 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
   unloads = 0;
   let model = "qwen3.6:27b";
   const chat: ChatClient = {
-    chat: async () => "", unload,
+    chat: async () => '{"answer":"Press Roll d20."}', unload,
     getModel: () => model, setModel: (m) => { model = m; },
     installedModels: async () => ["qwen3.5:9b", "qwen3.6:27b", "llama3:8b"],
     isLoaded: async () => loaded,
@@ -202,6 +202,14 @@ describe("API", () => {
     expect((await req("PUT", url, { text: " " })).statusCode).toBe(400);
     expect((await req("PUT", `/api/campaigns/${campaign.id}/replies/99999`, { text: "x" })).statusCode).toBe(409);
     expect((await req("PUT", `/api/campaigns/999/replies/${reply.id}`, { text: "x" })).statusCode).toBe(404);
+  });
+
+  it("answers questions about the game, and serves the manual", async () => {
+    const { req } = await start();
+    expect((await req("GET", "/api/manual")).json().manual).toContain("# How to play");
+    expect((await req("POST", "/api/help", { question: "  " })).statusCode).toBe(400);
+    expect((await req("POST", "/api/help", { question: "x".repeat(501) })).statusCode).toBe(400);
+    expect((await req("POST", "/api/help", { question: "How do I roll?", history: [] })).json()).toEqual({ answer: "Press Roll d20." });
   });
 
   it("lets players rewrite the story so far", async () => {

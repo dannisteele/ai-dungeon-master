@@ -4,6 +4,7 @@ import { ActionBar } from "../components/ActionBar";
 import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
 import { FeedbackPanel } from "../components/FeedbackPanel";
+import { HelpPanel } from "../components/HelpPanel";
 import { MoreMenu } from "../components/MoreMenu";
 import { PeoplePanel } from "../components/PeoplePanel";
 import { RecapPanel } from "../components/RecapPanel";
@@ -21,6 +22,7 @@ export function Play({ campaignId }: { campaignId: number }) {
   const [recapOpen, setRecapOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   // null: closed; "": open at the top; a name: open at that person's card.
   const [peopleFocus, setPeopleFocus] = useState<string | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
@@ -78,6 +80,7 @@ export function Play({ campaignId }: { campaignId: number }) {
           <button className="btn btn-ghost header-btn" aria-label="People you've met" onClick={() => setPeopleFocus("")}><span className="label-long">People</span><span className="label-short">👥</span></button>
           <MoreMenu items={[
             { label: "⚙ Table settings", onSelect: () => setSettingsOpen(true) },
+            { label: "❓ Help", onSelect: () => setHelpOpen(true) },
             ...(feedbackEnabled ? [{ label: "💬 Send feedback", onSelect: () => setFeedbackOpen(true) }] : []),
           ]} />
           <button className="btn btn-ghost header-btn sheet-toggle" onClick={() => setSheetOpen(true)}>Sheet</button>
@@ -99,6 +102,7 @@ export function Play({ campaignId }: { campaignId: number }) {
       {peopleFocus !== null && (
         <PeoplePanel campaignId={campaignId} people={snapshot.people} focus={peopleFocus || undefined} onClose={() => setPeopleFocus(null)} />
       )}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
       {settingsOpen && <SettingsPanel campaign={snapshot.campaign} onClose={() => setSettingsOpen(false)} />}
       {feedbackOpen && <FeedbackPanel screen="play" campaignId={campaignId} characterId={myId} onClose={() => setFeedbackOpen(false)} />}
       {current && (

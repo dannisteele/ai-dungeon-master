@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CampaignSummary } from "../../shared/types";
 import { FeedbackPanel } from "../components/FeedbackPanel";
+import { HelpPanel } from "../components/HelpPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { api } from "../lib/api";
 import { useFeedbackEnabled } from "../lib/feedback";
@@ -13,6 +14,7 @@ export function Lobby() {
   const [packNote, setPackNote] = useState<string | null>(null);
   const [packing, setPacking] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [renaming, setRenaming] = useState<{ id: number; title: string } | null>(null);
   const [version, setVersion] = useState<{ version: string; latest: string | null; updateAvailable: boolean } | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
@@ -73,6 +75,7 @@ export function Lobby() {
       <header className="row spread">
         <div><p className="eyebrow">The Tavern</p><h1>Your campaigns</h1></div>
         <div className="row">
+          <button className="btn btn-ghost" onClick={() => setHelpOpen(true)}>Help</button>
           {feedbackEnabled && <button className="btn btn-ghost" onClick={() => setFeedbackOpen(true)}>Feedback</button>}
           <button className="btn btn-primary" onClick={() => go("/new")}>New campaign</button>
         </div>
@@ -125,6 +128,7 @@ export function Lobby() {
         </p>
       )}
       {feedbackOpen && <FeedbackPanel screen="lobby" onClose={() => setFeedbackOpen(false)} />}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
     </main>
   );
 }
