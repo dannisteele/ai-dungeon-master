@@ -26,10 +26,23 @@ function Refresh-Path {
 }
 function Has($cmd) { [bool](Get-Command $cmd -ErrorAction SilentlyContinue) }
 function Node-Major { if (Has "node") { [int]((node --version) -replace "^v(\d+).*", '$1') } else { 0 } }
+# Windows Installer holds this mutex while any install runs (Windows Update, another app, or an
+# earlier attempt that never finished). A second install then waits forever or fails with 1618.
+function Installer-Busy {
+  try { [Threading.Mutex]::OpenExisting("Global\_MSIExecute").Dispose(); return $true }
+  catch [Threading.WaitHandleCannotBeOpenedException] { return $false }
+  catch { return $true } # it exists, we just may not open it
+}
+$BusyMessage = "Windows is busy installing something else (maybe Windows Update, or an earlier attempt that got stuck). Restart the laptop, then run this again."
 function Winget-Install($id, $name) {
+  if (Installer-Busy) { Fail $BusyMessage }
   Say "Installing $name (a window may ask for permission: click Yes)..."
   # winget exits non-zero when the package is already installed; the checks afterwards decide.
-  & winget install --id $id --exact --silent --accept-source-agreements --accept-package-agreements
+  # Give up rather than spin forever if the installer gets stuck waiting on something.
+  $p = Start-Process winget -NoNewWindow -PassThru -ArgumentList "install --id $id --exact --silent --accept-source-agreements --accept-package-agreements"
+  if (-not $p.WaitForExit(20 * 60 * 1000)) {
+    Fail "Installing $name is taking too long, so it may be stuck. Restart the laptop and run this again. If it sticks again, install $name yourself from its website, then run this again."
+  }
   Refresh-Path
 }
 # Is something answering at this address? Uses curl.exe (built into Windows 10/11) rather than
@@ -61,7 +74,8 @@ try {
     if (-not (Has $cmd)) { Fail "$cmd didn't install properly. Restart the laptop and run this again." }
   }
   if ((Node-Major) -lt 24) {
-    Fail "An older Node.js ($(node --version)) is in the way; the game needs version 24 or newer. Uninstall the old one from Settings > Apps, then run this again."
+    if (Installer-Busy) { Fail $BusyMessage }
+    Fail "An older Node.js ($(node --version)) is installed and couldn't be upgraded; the game needs version 24 or newer. Restart the laptop and run this again. If you see this again, uninstall Node.js from Settings > Apps, then run this again."
   }
 
   # 2. The game itself: use this copy if setup is running from inside one, else download it.
