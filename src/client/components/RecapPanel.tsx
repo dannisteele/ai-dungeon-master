@@ -42,8 +42,9 @@ export function RecapPanel({ campaignId, onClose }: { campaignId: number; onClos
         <header className="row spread">
           <h2 id="recap-title" style={{ margin: 0 }}>The story so far</h2>
           <div className="row">
-            {state.kind === "ready" && (
-              <button className="btn btn-ghost" onClick={() => setState({ ...state, kind: "editing", draft: state.summary, saving: false })}>Edit</button>
+            {(state.kind === "ready" || state.kind === "loading") && (
+              <button className="btn btn-ghost" disabled={state.kind === "loading"} title={state.kind === "loading" ? "Ready once the Dungeon Master has remembered the story" : undefined}
+                onClick={() => state.kind === "ready" && setState({ ...state, kind: "editing", draft: state.summary, saving: false })}>Edit</button>
             )}
             <button className="btn btn-ghost" onClick={onClose}>Close</button>
           </div>
