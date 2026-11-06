@@ -2,9 +2,25 @@
 
 A tabletop adventure for your home network. You and your party say what your heroes do; a local AI (Qwen, via Ollama) is the Dungeon Master. The app keeps the character sheets and rolls the dice.
 
-## Setup (Mac)
+## How it works
 
-1. Install Node 24+ and Ollama (`brew install ollama`, or the app from ollama.com).
+- **The AI runs on your own computer.** The Dungeon Master is Qwen, a free AI model from Alibaba, run by a free program called [Ollama](https://ollama.com). The model is downloaded once and then runs entirely on the laptop. No data centre, no account, no subscription, and no limit on how much you play. Your stories never leave the house.
+- **One computer hosts, everyone else just opens a link.** The host laptop runs the game as a small website on your home Wi-Fi. Players join from any phone, tablet or computer on the same Wi-Fi in a web browser (**Invite someone** in the Tavern shows the address). Only the host installs anything.
+- **The app keeps the rules, the AI tells the story.** Character sheets, dice, health and items are kept by the app, so the AI can't lose track of them. The AI decides what happens and writes it.
+- **Bigger brain if the laptop can take it.** Setup always downloads **Qwen 9B** (about 7 GB), which runs well on an ordinary laptop. If the laptop has **32 GB of memory or more** it also downloads **Qwen 27B** (about 17 GB), which tells better stories but needs much more memory and is slower. You can switch between them in the Tavern.
+- **What goes online:** only downloading the AI and updates, checking whether a newer version is out, and feedback you choose to send. Playing, including the **Help** chatbot, works with the internet off.
+
+### What the host laptop needs
+
+- Windows 10 or 11 (one-click setup below), or a Mac or Linux machine (setup by hand in a terminal, below).
+- 16 GB of memory or more is recommended for Qwen 9B. A graphics card makes replies much faster but isn't required.
+- About 10 GB of free disk space, or about 30 GB with Qwen 27B.
+
+## Setup (Mac or Linux)
+
+There's no one-click setup for Mac or Linux yet, so this is done in a terminal.
+
+1. Install Node 24+ and Ollama (on a Mac, `brew install ollama` or the app from ollama.com; on Linux, the install line on ollama.com).
 2. Start Ollama and fetch the model:
    ```bash
    ollama serve            # skip if the Ollama app is running
@@ -23,18 +39,25 @@ A tabletop adventure for your home network. You and your party say what your her
    The server prints addresses like `http://192.168.1.20:3000`. Open that on any phone or laptop on your Wi-Fi.
    The first time, macOS asks whether to allow incoming connections. Click **Allow**.
 
+To update later: `git pull`, then `npm install`, `npm run build` and `npm start` again.
+
 ## Setup (Windows)
 
-For someone who'd rather not touch a terminal:
+For someone who'd rather not touch a terminal. One file does everything:
 
 1. Download **[Setup-Dungeon-Master.bat](../../releases/latest/download/Setup-Dungeon-Master.bat)** (it's also attached to every [release](../../releases)) and double-click it. If Windows says "Windows protected your PC", click **More info → Run anyway**.
-2. It installs Node, Git and Ollama (click **Yes** if Windows asks), downloads the game to `%USERPROFILE%\ai-dungeon-master`, and asks for a table password and, optionally, the feedback token.
-3. It downloads the Qwen 9B model (about 7 GB), plus Qwen 27B (about 17 GB) if the laptop has 32 GB of memory or more. This is the slow part.
-4. Two shortcuts appear on the desktop:
+2. It installs what the game runs on, using Windows' own app installer (click **Yes** if Windows asks):
+   - **Node.js**, which runs the game's website.
+   - **Git**, which downloads the game and its updates.
+   - **Ollama**, which runs the AI on the laptop.
+3. It downloads the game to `%USERPROFILE%\ai-dungeon-master` and builds it.
+4. It asks for a **table password**, which anyone joining from a phone needs, and optionally the feedback token (see below).
+5. It downloads the AI: Qwen 9B (about 7 GB), plus Qwen 27B (about 17 GB) if the laptop has 32 GB of memory or more. This is the slow part, depending on your internet.
+6. Two shortcuts appear on the desktop:
    - **Dungeon Master** starts the game (and Ollama, in the background, if it isn't already running) and opens it in the browser. Leave its window open while playing; close it to stop. The first time, Windows asks whether to allow it on the network: click **Allow** if friends will join from their phones.
    - **Check for Updates** lists the [release notes](../../releases) for every version you're missing and, if you say yes, closes the game, copies your saves to `data\backups` (the newest 10 are kept), installs the newest release and starts it again. If an update fails it puts the old version back.
 
-Running the setup again is safe: it skips whatever is already done.
+Running the setup again is safe: it skips whatever is already done. If Windows is busy installing something else (often Windows Update), setup says so and asks you to restart the laptop rather than waiting forever.
 
 ## Playing
 
