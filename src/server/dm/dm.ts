@@ -62,7 +62,11 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
     throw new DmError(`The Dungeon Master gave an unusable reply twice (${lastError})`);
   }
 
-  const withFresh = (task: string, ctx: DmContext) => [task, freshReplyLine(ctx.recentRounds)].filter(Boolean).join("\n");
+  // Small models attend most to the end of the prompt, so the anti-repeat line and the players'
+  // wishes go after the task.
+  const withFresh = (task: string, ctx: DmContext) => [
+    task, freshReplyLine(ctx.recentRounds), ctx.campaign.dmNotes && `Remember the players' wishes: ${ctx.campaign.dmNotes}`,
+  ].filter(Boolean).join("\n");
 
   return {
     async adjudicate(ctx, actions) {
@@ -73,7 +77,7 @@ export function createDungeonMaster(deps: { chat: ChatClient; rules: RulesEngine
       return callStructured(buildMessages(ctx, rules, withFresh(resolveTask(input, ctx.campaign.dice), ctx), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     opening(ctx, stream) {
-      return callStructured(buildMessages(ctx, rules, openingTask(), budgetTokens), ResolveParseSchema, resolveFormat, stream);
+      return callStructured(buildMessages(ctx, rules, withFresh(openingTask(), ctx), budgetTokens), ResolveParseSchema, resolveFormat, stream);
     },
     revive(ctx, stream) {
       return callStructured(buildMessages(ctx, rules, withFresh(reviveTask(), ctx), budgetTokens), ResolveParseSchema, resolveFormat, stream);

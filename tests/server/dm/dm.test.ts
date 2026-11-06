@@ -24,7 +24,7 @@ class FakeChat implements ChatClient {
 }
 
 const ctx: DmContext = {
-  campaign: { id: 1, title: "T", mode: "solo", setting: "S", pitch: "", outline: null, sceneTitle: "", summary: "", pinnedSummary: "", realism: "fantastical", dice: "normal", roundState: "resolving", roundNumber: 1, stalledPhase: null, createdAt: "", updatedAt: "" },
+  campaign: { id: 1, title: "T", mode: "solo", setting: "S", pitch: "", outline: null, sceneTitle: "", summary: "", pinnedSummary: "", dmNotes: "", realism: "fantastical", dice: "normal", roundState: "resolving", roundNumber: 1, stalledPhase: null, createdAt: "", updatedAt: "" },
   characters: [], people: [], recentRounds: [],
 };
 const make = (replies: (string | Error)[]) => {
@@ -135,5 +135,13 @@ describe("DungeonMaster", () => {
     const { dm, chat } = make([JSON.stringify({ narration: "It begins.", changes: [] })]);
     await dm.resolve(ctx, { actions: [], skipped: [], rolls: [] }, recorder().handlers);
     expect(chat.requests[0].messages[1].content).not.toContain("Your previous reply began");
+  });
+
+  it("reminds the DM of the players' wishes at the end of every reply's task", async () => {
+    const { dm, chat } = make([JSON.stringify({ narration: "Fine.", changes: [] }), JSON.stringify({ narration: "Fine.", changes: [] })]);
+    await dm.resolve({ ...ctx, campaign: { ...ctx.campaign, dmNotes: "More dialogue." } }, { actions: [], skipped: [], rolls: [] }, recorder().handlers);
+    expect(chat.requests[0].messages[1].content.trimEnd().endsWith("Remember the players' wishes: More dialogue.")).toBe(true);
+    await dm.opening({ ...ctx, campaign: { ...ctx.campaign, dmNotes: "More dialogue." } }, recorder().handlers);
+    expect(chat.requests[1].messages[1].content.trimEnd().endsWith("Remember the players' wishes: More dialogue.")).toBe(true);
   });
 });

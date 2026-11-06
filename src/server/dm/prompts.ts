@@ -75,6 +75,7 @@ export function campaignBlock(c: Campaign): string {
     c.realism === "grounded" ? "Tone: grounded (realistic, nothing impossible)" : "Tone: fantastical",
   ];
   if (c.pitch) lines.push(`Pitch: ${c.pitch}`);
+  if (c.dmNotes) lines.push(`The players' wishes for the story (always follow these): ${c.dmNotes}`);
   if (c.outline) {
     lines.push(
       "Adventure outline (steer toward this, improvise within it):",

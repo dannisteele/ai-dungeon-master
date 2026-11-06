@@ -41,7 +41,7 @@ export const api = {
   presets: () => request<{ presets: Preset[]; adventures: AdventureInfo[] }>("GET", "/api/presets"),
   campaigns: () => request<{ campaigns: CampaignSummary[] }>("GET", "/api/campaigns"),
   createCampaign: (body: NewCampaignRequest) => request<{ campaign: Campaign }>("POST", "/api/campaigns", body),
-  updateSettings: (id: number, patch: { dice?: DiceMode; realism?: Realism }) =>
+  updateSettings: (id: number, patch: { dice?: DiceMode; realism?: Realism; dmNotes?: string }) =>
     request<{ campaign: Campaign }>("PATCH", `/api/campaigns/${id}/settings`, patch),
   updatePerson: (campaignId: number, name: string, patch: { about?: string; notes?: string; letDmUpdate?: true }) =>
     request<{ people: Person[] }>("PATCH", `/api/campaigns/${campaignId}/people/${encodeURIComponent(name)}`, patch),

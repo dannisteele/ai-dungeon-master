@@ -112,7 +112,7 @@ describe("save upgrades", () => {
   it("gives a brand-new save the same schema", () => {
     const store = createStore(":memory:");
     const c = store.createCampaign({ title: "New", mode: "solo", setting: "s", pitch: "", outline: null });
-    expect(c).toMatchObject({ realism: "fantastical", dice: "normal", pinnedSummary: "" });
+    expect(c).toMatchObject({ realism: "fantastical", dice: "normal", pinnedSummary: "", dmNotes: "" });
     expect(store.getPeople(c.id)).toEqual([]);
     store.close();
   });
