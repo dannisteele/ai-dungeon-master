@@ -703,3 +703,34 @@ describe("try again and editing the DM's replies (issue #28)", () => {
     await expect(turns.editNarration(id, 99999, "x")).rejects.toThrow(GameError);
   });
 });
+
+describe("changing what a hero did, then trying again", () => {
+  it("replaces the action, undoes the old reply and has the DM decide afresh", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChanges = [{ op: "add_item", character: "Corvin", name: "Warmth Crystal", description: "", qty: 1 }];
+    await turns.submitAction(id, chars[0].id, "I stare into my mug");
+    await turns.changeAction(id, chars[0].id, "  I ring the doctor's surgery  ");
+    expect(store.getCharacters(id)[0].items.map((i) => i.name)).toEqual(["Rope"]);
+    expect(dm.adjudicateCalls.at(-1)).toEqual([{ character: "Corvin", text: "I ring the doctor's surgery" }]);
+    expect(dm.resolveCalls.at(-1)!.actions).toEqual([{ character: "Corvin", text: "I ring the doctor's surgery" }]);
+    expect(store.getEvents(id, { fromRound: 1, toRound: 1 }).map((e) => e.type)).toEqual(["action", "narration"]);
+    expect(store.getCampaign(id)).toMatchObject({ roundNumber: 2, roundState: "collecting" });
+  });
+
+  it("can't change an action the dice were rolled for", async () => {
+    const { dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChecks = [{ character: "Corvin", ability: "CHA", dc: 12, reason: "persuade" }];
+    await turns.submitAction(id, chars[0].id, "I ask for a lift");
+    await turns.roll(id, chars[0].id);
+    await expect(turns.changeAction(id, chars[0].id, "I walk")).rejects.toThrow(/dice/);
+  });
+
+  it("only changes a hero's own action in the latest round, and never to nothing", async () => {
+    const { turns, id, chars } = await begun("party");
+    await turns.skip(id, chars[1].id, chars[1].id);
+    await turns.submitAction(id, chars[0].id, "I look around");
+    await expect(turns.changeAction(id, chars[1].id, "I act after all")).rejects.toThrow(GameError);
+    await expect(turns.changeAction(id, chars[0].id, "   ")).rejects.toThrow(GameError);
+    await turns.changeAction(id, chars[0].id, "I listen instead");
+  });
+});

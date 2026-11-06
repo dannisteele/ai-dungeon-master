@@ -45,7 +45,7 @@ Running the setup again is safe: it skips whatever is already done.
 - **People** lists everyone you've met, with the DM's description of each, kept up to date as the story goes and used to keep them in character. **Edit** a card to correct it or add your own notes (the DM treats your notes as true). Tap someone under Nearby → **About** to jump to their card.
 - **Story so far** shows a recap. **Edit** it to fix a mistake or steer the story: the DM follows your version from then on.
 - **Help** (in the Tavern, and in **⋯** during a game) answers questions about the game from [the manual](docs/manual.md), and shows the manual.
-- Under each of the DM's replies, **Edit** rewrites it (the DM carries on from your version). **Try again** on the latest reply undoes everything it changed (items, health, people, the scene) and has the DM write it again, with the same dice.
+- Under each of the DM's replies, **Edit** rewrites it (the DM carries on from your version). **Try again** on the latest reply undoes everything it changed (items, health, people, the scene) and has the DM write it again, with the same dice. **Change** under your own latest action rewords it and has the DM answer again (not once dice were rolled).
 - **Go ahead without me** / **Don't wait for …** keeps the game moving.
 - **Try again** appears if the DM gets stuck (e.g. Ollama was closed).
 - **Dungeon Master's brain** (bottom of the lobby) switches between the models you've downloaded, e.g. Qwen 27B for the best storytelling or Qwen 9B for speed. The choice is remembered, and from then on overrides `OLLAMA_MODEL` in `.env`. It can't be changed while the DM is mid-sentence.

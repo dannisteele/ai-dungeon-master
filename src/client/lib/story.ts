@@ -2,7 +2,7 @@ import type { Character, StoredEvent, StoredRoll } from "../../shared/types";
 
 export type StoryEntry =
   | { kind: "narration"; id: number; text: string }
-  | { kind: "action"; id: number; name: string; text: string }
+  | { kind: "action"; id: number; characterId: number; name: string; text: string }
   | { kind: "skip"; id: number; text: string }
   | { kind: "roll"; id: number; name: string; roll: StoredRoll }
   | { kind: "sheet"; id: number; text: string }
@@ -26,7 +26,7 @@ export function buildStory(events: StoredEvent[], chars: Character[]): StoryEntr
   for (const e of events) {
     switch (e.type) {
       case "narration": out.push({ kind: "narration", id: e.id, text: e.text }); break;
-      case "action": out.push({ kind: "action", id: e.id, name: nameOf(chars, e.characterId), text: e.text }); break;
+      case "action": out.push({ kind: "action", id: e.id, characterId: e.characterId, name: nameOf(chars, e.characterId), text: e.text }); break;
       case "skip":
         out.push({
           kind: "skip", id: e.id,

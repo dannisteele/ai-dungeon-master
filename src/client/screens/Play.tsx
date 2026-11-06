@@ -92,6 +92,8 @@ export function Play({ campaignId }: { campaignId: number }) {
               canTryAgain: snapshot.canTryAgain,
               onEdit: (id, text) => api.editReply(campaignId, id, text),
               onTryAgain: () => send({ t: "try_again" }),
+              myId,
+              onChangeAction: (characterId, text) => send({ t: "change_action", characterId, text }),
             }} />
           </div>
         </div>

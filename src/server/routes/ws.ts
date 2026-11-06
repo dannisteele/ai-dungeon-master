@@ -16,6 +16,7 @@ export const ClientMsgSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("retry") }),
   z.object({ t: z.literal("revive") }),
   z.object({ t: z.literal("try_again") }),
+  z.object({ t: z.literal("change_action"), characterId: id, text: z.string() }),
 ]) satisfies z.ZodType<ClientMsg>;
 
 function dispatch(turns: TurnService, campaignId: number, msg: ClientMsg): Promise<void> {
@@ -27,6 +28,7 @@ function dispatch(turns: TurnService, campaignId: number, msg: ClientMsg): Promi
     case "retry": return turns.retry(campaignId);
     case "revive": return turns.revive(campaignId);
     case "try_again": return turns.tryAgain(campaignId);
+    case "change_action": return turns.changeAction(campaignId, msg.characterId, msg.text);
   }
 }
 

@@ -6,7 +6,7 @@ import type { Broadcaster } from "../realtime/hub";
 import type { D20 } from "../rules/dice";
 import type { RulesEngine } from "../rules/engine";
 import { findCharacterByName } from "../rules/ops";
-import type { Store } from "../store/store";
+import type { Checkpoint, Store } from "../store/store";
 import { activeCharacters, buildSnapshot, whyNoTryAgain } from "./snapshot";
 import { roundStatus } from "./status";
 
@@ -109,25 +109,36 @@ export class TurnService {
    */
   tryAgain(id: number): Promise<void> {
     return this.locked(id, async () => {
-      const { store } = this.deps;
-      for (let running = this.summarising.get(id); running; running = this.summarising.get(id)) {
-        await running.catch(() => undefined);
-      }
-      const why = whyNoTryAgain(store, this.campaign(id));
-      if (why) throw new GameError(why);
-      const cp = store.getCheckpoint(id)!;
-      store.transaction(() => {
-        for (const ch of cp.characters) if (store.getCharacter(ch.id)) store.saveCharacter(ch);
-        store.restorePeople(id, cp.people);
-        const undone = store.getEvents(id, { fromRound: cp.round }).filter((e) =>
-          (e.round === cp.round && UNDONE_WITH_REPLY.has(e.type)) || (e.type === "summary" && !e.edited && e.throughRound >= cp.round));
-        store.deleteEvents(id, undone.map((e) => e.id));
-        store.clearCheckpoint(id);
-        store.updateCampaign(id, { summary: cp.summary, sceneTitle: cp.sceneTitle, roundNumber: cp.round });
-      });
+      const cp = await this.lastReplyCheckpoint(id);
+      this.undoLastReply(id, cp);
       if (cp.kind === "opening") await this.runOpening(id);
       else if (cp.kind === "revive") await this.runRevive(id);
       else await this.runResolve(id);
+    });
+  }
+
+  /**
+   * A hero rewrites what they did in the round the DM just answered; the reply is undone and the
+   * DM decides afresh (including whether to ask for a roll). Not once dice were rolled for that
+   * round, or it would be a free re-roll.
+   */
+  changeAction(id: number, characterId: number, text: string): Promise<void> {
+    return this.locked(id, async () => {
+      const { store } = this.deps;
+      const trimmed = text.trim();
+      if (!trimmed) throw new GameError("Say what your character does.");
+      if (trimmed.length > 1000) throw new GameError("Keep it under 1000 characters.");
+      const cp = await this.lastReplyCheckpoint(id);
+      const round = cp.kind === "resolve" ? store.getEvents(id, { fromRound: cp.round, toRound: cp.round }) : [];
+      const action = round.find((e) => e.type === "action" && e.characterId === characterId);
+      if (!action) throw new GameError("There's no action of yours in the latest round to change.");
+      if (round.some((e) => e.type === "roll")) throw new GameError("The dice were rolled for that round, so it can't be changed. You can still edit the reply.");
+      store.transaction(() => {
+        this.undoLastReply(id, cp);
+        store.deleteEvents(id, round.filter((e) => e.type === "check_request").map((e) => e.id));
+        store.replaceEvent(id, action.id, { type: "action", characterId, text: trimmed });
+      });
+      await this.runAdjudicate(id);
     });
   }
 
@@ -193,6 +204,30 @@ export class TurnService {
     });
     this.broadcastSnapshot(id);
     return { summary: pinned, throughRound: Math.max(0, editedThrough), editedThrough };
+  }
+
+  /** The undo point for the DM's latest reply, once nothing (a summary, an action) stands in the way. */
+  private async lastReplyCheckpoint(id: number): Promise<Checkpoint> {
+    for (let running = this.summarising.get(id); running; running = this.summarising.get(id)) {
+      await running.catch(() => undefined);
+    }
+    const why = whyNoTryAgain(this.deps.store, this.campaign(id));
+    if (why) throw new GameError(why);
+    return this.deps.store.getCheckpoint(id)!;
+  }
+
+  /** Puts sheets, people, scene and summary back as they were before the reply, and removes it. */
+  private undoLastReply(id: number, cp: Checkpoint): void {
+    const { store } = this.deps;
+    store.transaction(() => {
+      for (const ch of cp.characters) if (store.getCharacter(ch.id)) store.saveCharacter(ch);
+      store.restorePeople(id, cp.people);
+      const undone = store.getEvents(id, { fromRound: cp.round }).filter((e) =>
+        (e.round === cp.round && UNDONE_WITH_REPLY.has(e.type)) || (e.type === "summary" && !e.edited && e.throughRound >= cp.round));
+      store.deleteEvents(id, undone.map((e) => e.id));
+      store.clearCheckpoint(id);
+      store.updateCampaign(id, { summary: cp.summary, sceneTitle: cp.sceneTitle, roundNumber: cp.round });
+    });
   }
 
   /** Call once at startup: a phase that was running when the server stopped can never finish. */

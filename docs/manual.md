@@ -29,6 +29,7 @@
 ## Fixing the story when the DM gets it wrong
 - **Edit** (under any DM reply) lets you rewrite that reply. The DM carries on from your version. Editing words doesn't change items or health.
 - **Try again** (under the DM's latest reply) throws that reply away and has the DM write it again. Anything the reply gave, took or changed is undone first: items, health, people and where you are. Dice already rolled stay the same. It only works before anyone acts again.
+- **Change** (under what your hero did, in the round the DM just answered) lets you reword your action. The DM's reply is undone and it answers your new version instead. It can't be used once dice were rolled for that round.
 - **Story so far** (called **Recap** on narrow screens) shows a summary of the whole story. Press **Edit** there to rewrite it, for example to remove something that shouldn't have happened. The DM follows your version from then on. The summary can take a moment to appear (longer the first time after starting up), and **Edit** works once it has.
 - If the DM keeps repeating itself or arguing, press **Try again**, or **Edit** its reply to say what really happened.
 
