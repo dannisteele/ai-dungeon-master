@@ -139,6 +139,8 @@ export interface Snapshot {
   events: StoredEvent[];
   round: RoundStatus;
   activeIds: number[];
+  /** The latest DM reply can be undone and written again. */
+  canTryAgain: boolean;
 }
 
 export type ServerMsg =
@@ -153,7 +155,8 @@ export type ClientMsg =
   | { t: "skip"; characterId: number; by: number }
   | { t: "roll"; characterId: number }
   | { t: "retry" }
-  | { t: "revive" };
+  | { t: "revive" }
+  | { t: "try_again" };
 
 export interface Preset { id: string; name: string; blurb: string; setting: string; realism: Realism }
 export interface AdventureInfo { id: string; title: string; pitch: string; realism: Realism }

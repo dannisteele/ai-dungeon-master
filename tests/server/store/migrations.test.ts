@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import { createStore } from "../../../src/server/store/store";
+import { createStore, SCHEMA_VERSION } from "../../../src/server/store/store";
 
 // The schema as it was before versioned migrations (user_version 0): what saves made by
 // v1.4.x and earlier contain.
@@ -98,7 +98,7 @@ describe("save upgrades", () => {
       expect.objectContaining({ name: "The Guard", present: true, about: "", notes: "", aboutEdited: false }),
     ]);
     store.close();
-    expect(new Database(path).pragma("user_version", { simple: true })).toBe(1);
+    expect(new Database(path).pragma("user_version", { simple: true })).toBe(SCHEMA_VERSION);
   });
 
   it("doesn't re-run the upgrade on the next start", () => {

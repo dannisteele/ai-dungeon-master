@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { StoredRoll } from "../../shared/types";
+import { AI_PHASES, type StoredRoll } from "../../shared/types";
 import { ActionBar } from "../components/ActionBar";
 import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
@@ -9,6 +9,7 @@ import { PeoplePanel } from "../components/PeoplePanel";
 import { RecapPanel } from "../components/RecapPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { Story } from "../components/Story";
+import { api } from "../lib/api";
 import { useFeedbackEnabled } from "../lib/feedback";
 import { getMyCharacter } from "../lib/storage";
 import { buildStory, eventsBeforeRoll, isRoll, nameOf } from "../lib/story";
@@ -83,7 +84,12 @@ export function Play({ campaignId }: { campaignId: number }) {
         </header>
         <div className="story" ref={storyRef} onScroll={handleStoryScroll}>
           <div className="story-inner">
-            <Story entries={buildStory(visibleEvents, snapshot.characters)} streaming={current ? "" : streaming} />
+            <Story entries={buildStory(visibleEvents, snapshot.characters)} streaming={current ? "" : streaming} tools={{
+              editable: !current && !streaming && !(AI_PHASES as readonly string[]).includes(snapshot.campaign.roundState),
+              canTryAgain: snapshot.canTryAgain,
+              onEdit: (id, text) => api.editReply(campaignId, id, text),
+              onTryAgain: () => send({ t: "try_again" }),
+            }} />
           </div>
         </div>
         <ActionBar snapshot={snapshot} me={me} campaignId={campaignId} error={error} send={send} rollingIds={rollingIds} onAbout={setPeopleFocus} />

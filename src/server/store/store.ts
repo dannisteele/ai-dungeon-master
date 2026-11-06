@@ -17,6 +17,11 @@ export interface NewCharacterInput { campaignId: number; name: string; concept: 
 export type CampaignPatch = Partial<Pick<Campaign,
   "title" | "sceneTitle" | "summary" | "pinnedSummary" | "realism" | "dice" | "roundState" | "roundNumber" | "stalledPhase">>;
 export interface PersonPatch { about?: string; notes?: string; aboutEdited?: boolean }
+/** How things stood just before a DM reply, so "Try again" can undo it. */
+export interface Checkpoint {
+  round: number; kind: "opening" | "resolve" | "revive";
+  characters: Character[]; people: Person[]; sceneTitle: string; summary: string;
+}
 export interface EventQuery { fromRound?: number; toRound?: number; limit?: number }
 
 export interface Store {
@@ -45,6 +50,18 @@ export interface Store {
   updatePerson(campaignId: number, name: string, patch: PersonPatch): boolean;
   /** The DM's description, from the summary pass; ignored for unknown or player-edited people. */
   setPersonAbout(campaignId: number, name: string, about: string): void;
+  /** One per campaign: saving replaces the last. */
+  saveCheckpoint(campaignId: number, cp: Checkpoint): void;
+  getCheckpoint(campaignId: number): Checkpoint | undefined;
+  clearCheckpoint(campaignId: number): void;
+  /**
+   * Puts people back as they were at a checkpoint. The player's own notes and descriptions are
+   * kept; someone met since is removed, unless the player has written about them.
+   */
+  restorePeople(campaignId: number, people: Person[]): void;
+  deleteEvents(campaignId: number, ids: number[]): void;
+  /** Returns false unless the event is one of this campaign's DM replies. */
+  setNarrationText(campaignId: number, eventId: number, text: string): boolean;
   /** Small app-wide preferences, e.g. the chosen model. */
   getSetting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
@@ -134,6 +151,13 @@ const MIGRATIONS: string[] = [
   INSERT INTO people (campaign_id, name, attitude, condition, present)
     SELECT campaign_id, trim(name), attitude, condition, 1 FROM npcs ORDER BY id;
   DROP TABLE npcs;
+  `,
+  // 2: the undo point for "Try again" on the DM's latest reply.
+  `
+  CREATE TABLE checkpoints (
+    campaign_id INTEGER PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
+    data_json TEXT NOT NULL
+  );
   `,
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -338,6 +362,40 @@ export function createStore(path: string): Store {
     setPersonAbout(campaignId, name, about) {
       db.prepare("UPDATE people SET about = ? WHERE campaign_id = ? AND lower(trim(name)) = lower(trim(?)) AND about_edited = 0")
         .run(about, campaignId, name);
+    },
+    saveCheckpoint(campaignId, cp) {
+      db.prepare("INSERT INTO checkpoints (campaign_id, data_json) VALUES (?, ?) ON CONFLICT(campaign_id) DO UPDATE SET data_json = excluded.data_json")
+        .run(campaignId, JSON.stringify(cp));
+    },
+    getCheckpoint(campaignId) {
+      const row = db.prepare<[number], { data_json: string }>("SELECT data_json FROM checkpoints WHERE campaign_id = ?").get(campaignId);
+      return row ? (JSON.parse(row.data_json) as Checkpoint) : undefined;
+    },
+    clearCheckpoint(campaignId) {
+      db.prepare("DELETE FROM checkpoints WHERE campaign_id = ?").run(campaignId);
+    },
+    restorePeople(campaignId, people) {
+      const then = new Map(people.map((p) => [p.name.trim().toLowerCase(), p]));
+      const restore = db.prepare(`UPDATE people SET attitude = @attitude, condition = @condition, present = @present,
+        last_seen_round = @lastSeenRound, about = CASE WHEN about_edited = 0 THEN @about ELSE about END WHERE id = @id`);
+      db.transaction(() => {
+        const rows = db.prepare<[number], PersonRow & { id: number }>("SELECT * FROM people WHERE campaign_id = ?").all(campaignId);
+        for (const r of rows) {
+          const p = then.get(r.name.trim().toLowerCase());
+          if (p) restore.run({ id: r.id, attitude: p.attitude, condition: p.condition, present: p.present ? 1 : 0, lastSeenRound: p.lastSeenRound, about: p.about });
+          else if (r.notes || r.about_edited) db.prepare("UPDATE people SET present = 0 WHERE id = ?").run(r.id);
+          else db.prepare("DELETE FROM people WHERE id = ?").run(r.id);
+        }
+      })();
+    },
+    deleteEvents(campaignId, ids) {
+      const del = db.prepare("DELETE FROM events WHERE campaign_id = ? AND id = ?");
+      db.transaction(() => { for (const id of ids) del.run(campaignId, id); })();
+    },
+    setNarrationText(campaignId, eventId, text) {
+      const info = db.prepare("UPDATE events SET payload_json = ? WHERE campaign_id = ? AND id = ? AND type = 'narration'")
+        .run(JSON.stringify({ type: "narration", text }), campaignId, eventId);
+      return info.changes > 0;
     },
     getSetting(key) {
       return db.prepare<[string], { value: string }>("SELECT value FROM settings WHERE key = ?").get(key)?.value;

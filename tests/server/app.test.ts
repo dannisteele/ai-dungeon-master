@@ -191,6 +191,19 @@ describe("API", () => {
     expect((await req("POST", "/api/campaigns/999/recap")).statusCode).toBe(404);
   });
 
+  it("lets players rewrite one of the DM's replies", async () => {
+    const { req } = await start();
+    const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();
+    const reply = store.appendEvent(campaign.id, 0, { type: "narration", text: "Fog everywhere." });
+    store.updateCampaign(campaign.id, { roundState: "collecting", roundNumber: 1 });
+    const url = `/api/campaigns/${campaign.id}/replies/${reply.id}`;
+    expect((await req("PUT", url, { text: "Clear skies." })).statusCode).toBe(204);
+    expect(store.getEvents(campaign.id).find((e) => e.id === reply.id)).toMatchObject({ text: "Clear skies." });
+    expect((await req("PUT", url, { text: " " })).statusCode).toBe(400);
+    expect((await req("PUT", `/api/campaigns/${campaign.id}/replies/99999`, { text: "x" })).statusCode).toBe(409);
+    expect((await req("PUT", `/api/campaigns/999/replies/${reply.id}`, { text: "x" })).statusCode).toBe(404);
+  });
+
   it("lets players rewrite the story so far", async () => {
     const { req } = await start();
     const { campaign } = (await req("POST", "/api/campaigns", { mode: "solo", source: { kind: "preset", presetId: "gothic-horror" } })).json();

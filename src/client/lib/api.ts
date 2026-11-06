@@ -53,6 +53,7 @@ export const api = {
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
   recap: (campaignId: number) => request<Recap>("POST", `/api/campaigns/${campaignId}/recap`),
+  editReply: (campaignId: number, eventId: number, text: string) => request<void>("PUT", `/api/campaigns/${campaignId}/replies/${eventId}`, { text }),
   editSummary: (campaignId: number, summary: string) => request<Recap>("PUT", `/api/campaigns/${campaignId}/summary`, { summary }),
   models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),
   setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
