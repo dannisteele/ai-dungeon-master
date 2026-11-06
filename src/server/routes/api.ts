@@ -37,8 +37,9 @@ export const NewCharacterSchema = z.object({
 
 const KitRequestSchema = z.object({ campaignId: z.number().int(), name: z.string().trim().min(1).max(40), concept: z.string().trim().min(1).max(120) });
 const SpendSchema = z.object({ ability: z.enum(ABILITIES) });
-const SettingsSchema = z.object({ dice: z.enum(DICE_MODES).optional(), realism: z.enum(REALISMS).optional() })
-  .refine((v) => v.dice !== undefined || v.realism !== undefined, { message: "Nothing to change." });
+const SettingsSchema = z.object({
+  dice: z.enum(DICE_MODES).optional(), realism: z.enum(REALISMS).optional(), dmNotes: z.string().trim().max(500).optional(),
+}).refine((v) => v.dice !== undefined || v.realism !== undefined || v.dmNotes !== undefined, { message: "Nothing to change." });
 const PersonEditSchema = z.object({
   about: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(500).optional(),

@@ -142,6 +142,10 @@ describe("API", () => {
     expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, {})).statusCode).toBe(400);
     expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "sometimes" })).statusCode).toBe(400);
     expect((await req("PATCH", "/api/campaigns/999/settings", { dice: "big" })).statusCode).toBe(404);
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dmNotes: "  More dialogue, please.  " })).json().campaign)
+      .toMatchObject({ dice: "off", dmNotes: "More dialogue, please." });
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dmNotes: "" })).json().campaign).toMatchObject({ dmNotes: "" });
+    expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dmNotes: "x".repeat(501) })).statusCode).toBe(400);
     store.updateCampaign(campaign.id, { roundState: "resolving" });
     expect((await req("PATCH", `/api/campaigns/${campaign.id}/settings`, { dice: "big" })).statusCode).toBe(409);
   });

@@ -42,6 +42,7 @@
 - Open **⋯** (top right), then **⚙ Table settings**. Changes apply from the DM's next reply, and you can change them at any time.
 - **Dice**: **Every risky moment**, **Only big moments** (just confrontations, big gambles and real danger), or **Off (story mode)**, where there are no dice and the DM decides what happens fairly.
 - **Story**: **Grounded** or **Fantastical**.
+- **Notes for the Dungeon Master**: tell the DM how you'd like the story told, for example "more dialogue", "keep it slow and cosy" or "no one dies". Press **Save notes**. The DM follows them every turn.
 
 ## Your hero's sheet
 - The sheet shows health (HP), abilities and the pack. On narrow screens, press **Sheet**.

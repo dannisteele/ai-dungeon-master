@@ -13,7 +13,7 @@ const person = (name: string, over: Partial<Person> = {}): Person => ({
 const campaign: Campaign = {
   id: 1, title: "The Drowned Chapel", mode: "party", setting: "Gothic fantasy", pitch: "A bell rings at night",
   outline: { id: "dc", title: "The Drowned Chapel", setting: "Gothic", pitch: "p", goal: "Silence the bell", villain: "Sister Ambrel", locations: ["Nave"], beats: ["Arrive"], realism: "fantastical" as const },
-  sceneTitle: "Fenwick", summary: "The party arrived in Fenwick.", pinnedSummary: "", realism: "fantastical", dice: "normal", roundState: "collecting", roundNumber: 3, stalledPhase: null, createdAt: "", updatedAt: "",
+  sceneTitle: "Fenwick", summary: "The party arrived in Fenwick.", pinnedSummary: "", dmNotes: "", realism: "fantastical", dice: "normal", roundState: "collecting", roundNumber: 3, stalledPhase: null, createdAt: "", updatedAt: "",
 };
 const corvin: Character = {
   id: 1, campaignId: 1, name: "Corvin", concept: "disgraced knight", level: 2, hp: 0, maxHp: 25,
@@ -279,5 +279,12 @@ describe("keeping the story straight (issue #28)", () => {
   it("the summary leaves out anything a player corrected or undid", () => {
     const text = summaryMessages("", [{ round: 3, lines: ["Bill: there is no crystal"] }])[1]!.content;
     expect(text).toContain("If a player corrected or undid something (said it didn't happen or isn't possible), leave it out as if it never happened.");
+  });
+});
+
+describe("the players' notes for the DM", () => {
+  it("are in the campaign block only when there are some", () => {
+    expect(campaignBlock({ ...campaign, dmNotes: "Keep it slow and cosy." })).toContain("The players' wishes for the story (always follow these): Keep it slow and cosy.");
+    expect(campaignBlock(campaign)).not.toContain("wishes");
   });
 });

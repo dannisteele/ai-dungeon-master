@@ -16,6 +16,8 @@ const REALISM: [Realism, string, string][] = [
 export function SettingsPanel({ campaign, onClose }: { campaign: Campaign; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notes, setNotes] = useState(campaign.dmNotes);
+  const [notesSaved, setNotesSaved] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -23,11 +25,13 @@ export function SettingsPanel({ campaign, onClose }: { campaign: Campaign; onClo
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function save(patch: { dice?: DiceMode; realism?: Realism }) {
+  async function save(patch: { dice?: DiceMode; realism?: Realism; dmNotes?: string }) {
     setSaving(true);
     setError(null);
+    setNotesSaved(false);
     try {
       await api.updateSettings(campaign.id, patch); // the snapshot broadcast updates `campaign`
+      if (patch.dmNotes !== undefined) setNotesSaved(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -59,6 +63,18 @@ export function SettingsPanel({ campaign, onClose }: { campaign: Campaign; onClo
         <div className="stack recap-body">
           {group("Dice", DICE, campaign.dice, (dice) => save({ dice }))}
           {group("Story", REALISM, campaign.realism, (realism) => save({ realism }))}
+          <section className="stack">
+            <h3 style={{ margin: 0 }}>Notes for the Dungeon Master</h3>
+            <p className="muted small" style={{ margin: 0 }}>How you'd like the story told. The DM follows these every turn, for example "more dialogue", "keep it slow and cosy" or "no one dies".</p>
+            <form className="stack" onSubmit={(e) => { e.preventDefault(); void save({ dmNotes: notes }); }}>
+              <textarea className="input" rows={3} maxLength={500} value={notes} aria-label="Notes for the Dungeon Master"
+                onChange={(e) => { setNotes(e.target.value); setNotesSaved(false); }} />
+              <div className="row">
+                <button className="btn btn-primary" type="submit" disabled={saving || notes.trim() === campaign.dmNotes}>Save notes</button>
+                {notesSaved && <span className="muted small">Saved.</span>}
+              </div>
+            </form>
+          </section>
           {error && <p className="error">{error}</p>}
           <p className="muted small" style={{ margin: 0 }}>Changes apply from the Dungeon Master's next turn.</p>
         </div>

@@ -15,7 +15,7 @@ export interface NewCampaignInput {
 }
 export interface NewCharacterInput { campaignId: number; name: string; concept: string; scores: Scores; hp: number; maxHp: number; items: Item[] }
 export type CampaignPatch = Partial<Pick<Campaign,
-  "title" | "sceneTitle" | "summary" | "pinnedSummary" | "realism" | "dice" | "roundState" | "roundNumber" | "stalledPhase">>;
+  "title" | "sceneTitle" | "summary" | "pinnedSummary" | "dmNotes" | "realism" | "dice" | "roundState" | "roundNumber" | "stalledPhase">>;
 export interface PersonPatch { about?: string; notes?: string; aboutEdited?: boolean }
 /** How things stood just before a DM reply, so "Try again" can undo it. */
 export interface Checkpoint {
@@ -159,6 +159,10 @@ const MIGRATIONS: string[] = [
     data_json TEXT NOT NULL
   );
   `,
+  // 3: the players' notes for the DM.
+  `
+  ALTER TABLE campaigns ADD COLUMN dm_notes TEXT NOT NULL DEFAULT '';
+  `,
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
@@ -183,7 +187,7 @@ const toPerson = (r: PersonRow): Person => ({
 
 interface CampaignRow {
   id: number; title: string; mode: Mode; setting: string; pitch: string; outline_json: string | null;
-  scene_title: string; summary: string; pinned_summary: string; realism: Realism; dice: DiceMode;
+  scene_title: string; summary: string; pinned_summary: string; dm_notes: string; realism: Realism; dice: DiceMode;
   round_state: RoundState; round_number: number;
   stalled_phase: AiPhase | null; created_at: string; updated_at: string;
 }
@@ -196,7 +200,7 @@ interface EventRow { id: number; campaign_id: number; round_number: number; type
 const toCampaign = (r: CampaignRow): Campaign => ({
   id: r.id, title: r.title, mode: r.mode, setting: r.setting, pitch: r.pitch,
   outline: r.outline_json ? (JSON.parse(r.outline_json) as AdventureOutline) : null,
-  sceneTitle: r.scene_title, summary: r.summary, pinnedSummary: r.pinned_summary, realism: r.realism, dice: r.dice,
+  sceneTitle: r.scene_title, summary: r.summary, pinnedSummary: r.pinned_summary, dmNotes: r.dm_notes, realism: r.realism, dice: r.dice,
   roundState: r.round_state, roundNumber: r.round_number,
   stalledPhase: r.stalled_phase, createdAt: r.created_at, updatedAt: r.updated_at,
 });
@@ -207,7 +211,7 @@ const toEvent = (r: EventRow): StoredEvent => ({
 });
 
 const PATCH_COLUMNS: Record<keyof CampaignPatch, string> = {
-  title: "title", sceneTitle: "scene_title", summary: "summary", pinnedSummary: "pinned_summary", realism: "realism", dice: "dice", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
+  title: "title", sceneTitle: "scene_title", summary: "summary", pinnedSummary: "pinned_summary", dmNotes: "dm_notes", realism: "realism", dice: "dice", roundState: "round_state", roundNumber: "round_number", stalledPhase: "stalled_phase",
 };
 
 export function createStore(path: string): Store {

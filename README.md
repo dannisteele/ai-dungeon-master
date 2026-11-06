@@ -41,7 +41,7 @@ Running the setup again is safe: it skips whatever is already done.
 - **New campaign**: choose a setting, write your own pitch, or pick a prepared adventure. Party = play together, Solo = just you. Each story is **Grounded** (real life: no magic or anything impossible) or **Fantastical**; settings and adventures pick one, and your own pitch asks.
 - **Join**: each player creates a hero (5e point buy) on their own device, or picks an existing one.
 - **Begin**, then each round type what you do. The DM asks for checks when things are risky; press **Roll d20**.
-- **⋯ → Table settings** changes the dice (**Every risky moment**, **Only big moments**, or **Off**: story mode, where the DM decides fairly) and Grounded/Fantastical, mid-campaign. Grounded stories start on Only big moments.
+- **⋯ → Table settings** changes the dice (**Every risky moment**, **Only big moments**, or **Off**: story mode, where the DM decides fairly) and Grounded/Fantastical, mid-campaign, and takes **Notes for the Dungeon Master** ("more dialogue", "no one dies") that the DM follows every turn. Grounded stories start on Only big moments.
 - **People** lists everyone you've met, with the DM's description of each, kept up to date as the story goes and used to keep them in character. **Edit** a card to correct it or add your own notes (the DM treats your notes as true). Tap someone under Nearby → **About** to jump to their card.
 - **Story so far** shows a recap. **Edit** it to fix a mistake or steer the story: the DM follows your version from then on.
 - **Help** (in the Tavern, and in **⋯** during a game) answers questions about the game from [the manual](docs/manual.md), and shows the manual.

@@ -71,6 +71,8 @@ export interface Campaign {
   summary: string;
   /** The players' own story-so-far, kept word for word; `summary` then covers only what came after. */
   pinnedSummary: string;
+  /** The players' standing wishes for the story ("more dialogue"), which the DM always follows. */
+  dmNotes: string;
   realism: Realism;
   dice: DiceMode;
   roundState: RoundState;
