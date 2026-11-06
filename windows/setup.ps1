@@ -39,7 +39,7 @@ function Winget-Install($id, $name) {
   Say "Installing $name (a window may ask for permission: click Yes)..."
   # winget exits non-zero when the package is already installed; the checks afterwards decide.
   # Give up rather than spin forever if the installer gets stuck waiting on something.
-  $p = Start-Process winget -NoNewWindow -PassThru -ArgumentList "install --id $id --exact --silent --accept-source-agreements --accept-package-agreements"
+  $p = Start-Process (Get-Command winget).Source -NoNewWindow -PassThru -ArgumentList "install --id $id --exact --silent --accept-source-agreements --accept-package-agreements"
   if (-not $p.WaitForExit(20 * 60 * 1000)) {
     Fail "Installing $name is taking too long, so it may be stuck. Restart the laptop and run this again. If it sticks again, install $name yourself from its website, then run this again."
   }
