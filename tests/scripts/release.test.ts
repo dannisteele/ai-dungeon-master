@@ -48,3 +48,15 @@ describe("release plan", () => {
     expect(plainTitle("fix(ui): tidy header")).toBe("Tidy header");
   });
 });
+
+describe("release assets", () => {
+  it("attaches the Windows setup under a link-friendly name, from a file that exists", async () => {
+    const { existsSync } = await import("node:fs");
+    const { RELEASE_ASSETS } = await import("../../scripts/release/plan");
+    expect(RELEASE_ASSETS).toContainEqual({ from: "windows/Setup Dungeon Master.bat", name: "Setup-Dungeon-Master.bat" });
+    for (const a of RELEASE_ASSETS) {
+      expect(existsSync(a.from)).toBe(true);
+      expect(a.name).toMatch(/^[\w.-]+$/); // GitHub renames spaces, which would break the fixed link
+    }
+  });
+});

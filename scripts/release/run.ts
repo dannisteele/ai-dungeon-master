@@ -2,10 +2,10 @@
 // new version and publish a GitHub release with notes grouped by PR. Needs the gh CLI with
 // GH_TOKEN, and a full clone (fetch-depth: 0). `--dry-run` prints what it would do.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bumpFor, commitKind, nextVersion, parseFirstParent, plainTitle, prNumber, releaseNotes, strongest, type Change } from "./plan";
+import { RELEASE_ASSETS, bumpFor, commitKind, nextVersion, parseFirstParent, plainTitle, prNumber, releaseNotes, strongest, type Change } from "./plan";
 
 const dryRun = process.argv.includes("--dry-run");
 const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { encoding: "utf8" }).trim();
@@ -34,7 +34,10 @@ const notes = releaseNotes(changes);
 console.log(`${lastTag} -> ${tag} (${bump})\n\n${notes}`);
 if (dryRun) process.exit(0);
 
-const file = join(mkdtempSync(join(tmpdir(), "release-")), "notes.md");
+const dir = mkdtempSync(join(tmpdir(), "release-"));
+const file = join(dir, "notes.md");
 writeFileSync(file, notes);
-run("gh", ["release", "create", tag, "--target", head, "--title", tag, "--notes-file", file]);
+// Copied under their release names, since GitHub names an asset after its file.
+const assets = RELEASE_ASSETS.map((a) => { const to = join(dir, a.name); copyFileSync(a.from, to); return to; });
+run("gh", ["release", "create", tag, ...assets, "--target", head, "--title", tag, "--notes-file", file]);
 console.log(`Published ${tag}`);

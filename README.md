@@ -27,7 +27,7 @@ A tabletop adventure for your home network. You and your party say what your her
 
 For someone who'd rather not touch a terminal:
 
-1. Download **`windows/Setup Dungeon Master.bat`** from this repo on GitHub (open the file, then the **Download raw file** button) and double-click it. If Windows says "Windows protected your PC", click **More info → Run anyway**.
+1. Download **[Setup-Dungeon-Master.bat](../../releases/latest/download/Setup-Dungeon-Master.bat)** (it's also attached to every [release](../../releases)) and double-click it. If Windows says "Windows protected your PC", click **More info → Run anyway**.
 2. It installs Node, Git and Ollama (click **Yes** if Windows asks), downloads the game to `%USERPROFILE%\ai-dungeon-master`, and asks for a table password and, optionally, the feedback token.
 3. It downloads the Qwen 9B model (about 7 GB), plus Qwen 27B (about 17 GB) if the laptop has 32 GB of memory or more. This is the slow part.
 4. Two shortcuts appear on the desktop:
