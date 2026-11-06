@@ -13,6 +13,14 @@
 - **Kind of story**: **Grounded** is real life, with no magic or anything impossible. **Fantastical** allows magic and the impossible. Your own stories start as Grounded.
 - Then press **Create campaign** and make your hero.
 
+## Inviting other players
+- Press **Invite someone** in The Tavern, or choose **📨 Invite someone** from the **⋯** menu during a party game.
+- It shows the link to send the other players, and a QR code they can scan with their phone camera. Don't send "localhost": that only works on this computer.
+- They must be on the **same Wi-Fi** as the computer running the game. It doesn't work over mobile data or from a guest Wi-Fi network.
+- They'll need the table password too.
+- The link can change when the computer reconnects to the Wi-Fi. If an old link stops working, open **Invite someone** again.
+- If they're on the same Wi-Fi and still can't connect, security software on the computer may be blocking them. This is common on work laptops.
+
 ## Making a hero
 - Give your hero a name and a short description (for example "skint warehouse worker").
 - **Suggest a kit** has the Dungeon Master pack their bag with things that suit them. **Suggest another** tries again.

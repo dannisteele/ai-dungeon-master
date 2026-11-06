@@ -5,6 +5,7 @@ import { CharacterSheet } from "../components/CharacterSheet";
 import { DiceOverlay } from "../components/DiceOverlay";
 import { FeedbackPanel } from "../components/FeedbackPanel";
 import { HelpPanel } from "../components/HelpPanel";
+import { InvitePanel } from "../components/InvitePanel";
 import { MoreMenu } from "../components/MoreMenu";
 import { PeoplePanel } from "../components/PeoplePanel";
 import { RecapPanel } from "../components/RecapPanel";
@@ -23,6 +24,7 @@ export function Play({ campaignId }: { campaignId: number }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   // null: closed; "": open at the top; a name: open at that person's card.
   const [peopleFocus, setPeopleFocus] = useState<string | null>(null);
   const feedbackEnabled = useFeedbackEnabled();
@@ -79,6 +81,8 @@ export function Play({ campaignId }: { campaignId: number }) {
           <button className="btn btn-ghost header-btn" aria-label="Story so far" onClick={() => setRecapOpen(true)}><span className="label-long">Story so far</span><span className="label-short">Recap</span></button>
           <button className="btn btn-ghost header-btn" aria-label="People you've met" onClick={() => setPeopleFocus("")}><span className="label-long">People</span><span className="label-short">👥</span></button>
           <MoreMenu items={[
+            // Solo campaigns have one hero, so there's nobody to invite.
+            ...(snapshot.campaign.mode === "party" ? [{ label: "📨 Invite someone", onSelect: () => setInviteOpen(true) }] : []),
             { label: "⚙ Table settings", onSelect: () => setSettingsOpen(true) },
             { label: "❓ Help", onSelect: () => setHelpOpen(true) },
             ...(feedbackEnabled ? [{ label: "💬 Send feedback", onSelect: () => setFeedbackOpen(true) }] : []),
@@ -105,6 +109,7 @@ export function Play({ campaignId }: { campaignId: number }) {
         <PeoplePanel campaignId={campaignId} people={snapshot.people} focus={peopleFocus || undefined} onClose={() => setPeopleFocus(null)} />
       )}
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+      {inviteOpen && <InvitePanel onClose={() => setInviteOpen(false)} />}
       {settingsOpen && <SettingsPanel campaign={snapshot.campaign} onClose={() => setSettingsOpen(false)} />}
       {feedbackOpen && <FeedbackPanel screen="play" campaignId={campaignId} characterId={myId} onClose={() => setFeedbackOpen(false)} />}
       {current && (
