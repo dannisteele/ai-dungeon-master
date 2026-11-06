@@ -12,6 +12,8 @@ export interface FeedbackRequest {
 /** The story so far: the players' pinned text plus the DM's summary since, and when they last edited it. */
 export interface Recap { summary: string; throughRound: number; editedThrough: number | null }
 
+export interface HelpTurn { role: "user" | "assistant"; content: string }
+
 export interface ModelChoice { name: string; label: string; installed: boolean }
 
 export class ApiError extends Error {
@@ -53,6 +55,8 @@ export const api = {
     request<{ character: Character }>("POST", `/api/characters/${characterId}/spend`, { ability }),
   packUp: () => request<{ ok: true }>("POST", "/api/pack-up"),
   recap: (campaignId: number) => request<Recap>("POST", `/api/campaigns/${campaignId}/recap`),
+  manual: () => request<{ manual: string }>("GET", "/api/manual"),
+  help: (question: string, history: HelpTurn[]) => request<{ answer: string }>("POST", "/api/help", { question, history }),
   editReply: (campaignId: number, eventId: number, text: string) => request<void>("PUT", `/api/campaigns/${campaignId}/replies/${eventId}`, { text }),
   editSummary: (campaignId: number, summary: string) => request<Recap>("PUT", `/api/campaigns/${campaignId}/summary`, { summary }),
   models: () => request<{ current: string; models: ModelChoice[] }>("GET", "/api/models"),

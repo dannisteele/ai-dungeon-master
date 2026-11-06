@@ -6,6 +6,7 @@ import { DmError, type DungeonMaster } from "../dm/dm";
 import { OllamaError, type ChatClient } from "../dm/ollama";
 import { memoryText } from "../dm/context";
 import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
+import { askHelp, loadManual } from "../help/help";
 import { isNewer, type UpdateChecker } from "../updates";
 import type { RulesEngine } from "../rules/engine";
 import { NameTakenError, type Store } from "../store/store";
@@ -45,6 +46,10 @@ const PersonEditSchema = z.object({
   letDmUpdate: z.literal(true).optional(),
 }).refine((v) => v.about !== undefined || v.notes !== undefined || v.letDmUpdate, { message: "Nothing to change." });
 const SummaryEditSchema = z.object({ summary: z.string().trim().min(1, "Write something for the story so far.").max(4000) });
+const HelpSchema = z.object({
+  question: z.string().trim().min(1, "Ask a question.").max(500),
+  history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) })).max(40).default([]),
+});
 const ReplyEditSchema = z.object({ text: z.string().trim().min(1, "The reply can't be empty.").max(4000) });
 const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
@@ -83,6 +88,7 @@ export interface ApiDeps {
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
   const { store, rules, dm, chat, turns, adventures, feedback, version, updates } = deps;
   const bad = (error: z.ZodError) => ({ error: z.prettifyError(error) });
+  const manual = loadManual();
   const dmBusy = () => store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
   const midSentence = { error: "The Dungeon Master is mid-sentence. Try again once the story settles." };
 
@@ -243,6 +249,19 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     } catch (e) {
       if (e instanceof GameError) return reply.code(409).send({ error: e.message });
       throw e;
+    }
+  });
+
+  app.get("/api/manual", async () => ({ manual }));
+
+  app.post("/api/help", async (req, reply) => {
+    const parsed = HelpSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    try {
+      return { answer: await askHelp(chat, manual, parsed.data.question, parsed.data.history) };
+    } catch (e) {
+      req.log.warn(e, "help failed");
+      return reply.code(503).send({ error: "The Dungeon Master couldn't answer just now. Try again, or read the manual." });
     }
   });
 
