@@ -72,3 +72,9 @@ export function prNumber(subject: string): number | undefined {
   const m = /^Merge pull request #(\d+) /.exec(subject);
   return m ? Number(m[1]) : undefined;
 }
+
+/** Files attached to every release. The setup gets a space-free name so
+ *  releases/latest/download/Setup-Dungeon-Master.bat is a link that never changes. */
+export const RELEASE_ASSETS: { from: string; name: string }[] = [
+  { from: "windows/Setup Dungeon Master.bat", name: "Setup-Dungeon-Master.bat" },
+];
