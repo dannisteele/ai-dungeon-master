@@ -16,6 +16,9 @@ export interface HelpTurn { role: "user" | "assistant"; content: string }
 
 export interface ModelChoice { name: string; label: string; installed: boolean }
 
+/** One of the host computer's addresses on the local network (see src/server/invite.ts). */
+export interface InviteAddress { url: string; adapter: string }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -63,6 +66,7 @@ export const api = {
   setModel: (model: string) => request<{ current: string }>("POST", "/api/models", { model }),
   version: () => request<{ version: string; latest: string | null; updateAvailable: boolean }>("GET", "/api/version"),
   dmStatus: () => request<{ loaded: boolean }>("GET", "/api/dm-status"),
+  invite: () => request<{ addresses: InviteAddress[] }>("GET", "/api/invite"),
   feedbackEnabled: () => request<{ enabled: boolean }>("GET", "/api/feedback"),
   sendFeedback: (body: FeedbackRequest) => request<{ url: string }>("POST", "/api/feedback", body),
 };

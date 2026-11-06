@@ -8,6 +8,7 @@ import { OllamaError, type ChatClient } from "../../src/server/dm/ollama";
 import { IssueFilerError, type IssueFiler, type NewIssue } from "../../src/server/feedback/github";
 import { createStore, type Store } from "../../src/server/store/store";
 import type { AddressInfo } from "node:net";
+import type { NetworkInterfaceInfo } from "node:os";
 import type { FastifyInstance } from "fastify";
 
 const LAN = "192.168.1.10";
@@ -27,6 +28,7 @@ let app: FastifyInstance;
 let store: Store;
 let unloads = 0;
 let loaded = false;
+let interfaces: NodeJS.Dict<NetworkInterfaceInfo[]> = {};
 afterEach(async () => {
   await app?.close();
   store?.close();
@@ -42,7 +44,8 @@ async function start(dm = fakeDm(), unload: ChatClient["unload"] = async () => {
     installedModels: async () => ["qwen3.5:9b", "qwen3.6:27b", "llama3:8b"],
     isLoaded: async () => loaded,
   };
-  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest } }));
+  ({ app } = await buildApp({ config: loadConfig({ TABLE_PASSWORD: "dragon" }), store, dm, chat, issues, version: "v1.0.0", updates: { latest: async () => latest },
+    networkInterfaces: () => interfaces }));
   const login = await app.inject({ method: "POST", url: "/api/login", remoteAddress: LAN, payload: { password: "dragon" } });
   const cookie = `table=${login.cookies.find((c) => c.name === "table")!.value}`;
   const req = (method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", url: string, payload?: object) =>
@@ -296,6 +299,16 @@ describe("API", () => {
     await app.close();
     const newer = await start(fakeDm(), undefined, undefined, "v999.0.0");
     expect((await newer.req("GET", "/api/version")).json()).toMatchObject({ latest: "v999.0.0", updateAvailable: true });
+  });
+
+  it("gives signed-in players this computer's current network address to invite others", async () => {
+    const { req } = await start();
+    interfaces = { WiFi: [{ address: "192.168.1.176", family: "IPv4", internal: false } as NetworkInterfaceInfo] };
+    expect((await req("GET", "/api/invite")).json()).toEqual({ addresses: [{ url: "http://192.168.1.176:3000", adapter: "WiFi" }] });
+    interfaces = { WiFi: [{ address: "192.168.1.42", family: "IPv4", internal: false } as NetworkInterfaceInfo] };
+    expect((await req("GET", "/api/invite")).json().addresses[0].url).toBe("http://192.168.1.42:3000"); // re-read, not cached
+    interfaces = {};
+    expect((await app.inject({ method: "GET", url: "/api/invite", remoteAddress: LAN })).statusCode).toBe(401);
   });
 
   it("hides feedback when no GitHub token is set", async () => {

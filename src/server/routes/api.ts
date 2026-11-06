@@ -7,6 +7,7 @@ import { OllamaError, type ChatClient } from "../dm/ollama";
 import { memoryText } from "../dm/context";
 import { buildIssueBody, IssueFilerError, type IssueFiler } from "../feedback/github";
 import { askHelp, loadManual } from "../help/help";
+import type { InviteAddress } from "../invite";
 import { isNewer, type UpdateChecker } from "../updates";
 import type { RulesEngine } from "../rules/engine";
 import { NameTakenError, type Store } from "../store/store";
@@ -84,10 +85,12 @@ export interface ApiDeps {
   /** This copy's release, e.g. "v1.4.0" (see src/server/version.ts). */
   version: string;
   updates: UpdateChecker;
+  /** This computer's addresses on the local network, for inviting other players. */
+  invites: () => InviteAddress[];
 }
 
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
-  const { store, rules, dm, chat, turns, adventures, feedback, version, updates } = deps;
+  const { store, rules, dm, chat, turns, adventures, feedback, version, updates, invites } = deps;
   const bad = (error: z.ZodError) => ({ error: z.prettifyError(error) });
   const manual = loadManual();
   const dmBusy = () => store.listCampaigns().some((c) => (AI_PHASES as readonly string[]).includes(c.roundState));
@@ -281,6 +284,8 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     const latest = await updates.latest();
     return { version, latest, updateAvailable: latest !== null && isNewer(latest, version) };
   });
+
+  app.get("/api/invite", async () => ({ addresses: invites() }));
 
   app.get("/api/feedback", async () => ({ enabled: Boolean(feedback) }));
 

@@ -5,6 +5,7 @@ import { loadOrCreateServerSecret } from "./auth/password";
 import { loadConfig } from "./config";
 import { createDungeonMaster } from "./dm/dm";
 import { createOllamaClient } from "./dm/ollama";
+import { inviteAddresses } from "./invite";
 import { lightRules } from "./rules/engine";
 import { MODEL_SETTING } from "./routes/api";
 import { createStore } from "./store/store";
@@ -23,9 +24,7 @@ const { app, turns } = await buildApp({ config, store, dm, chat, serverSecret, s
 turns.recoverInterrupted();
 await app.listen({ port: config.port, host: config.host });
 
-const lan = Object.values(networkInterfaces()).flat()
-  .filter((n) => n && n.family === "IPv4" && !n.internal)
-  .map((n) => `  http://${n!.address}:${config.port}`);
+const lan = inviteAddresses(networkInterfaces(), config.port).map((a) => `  ${a.url}`);
 console.log(`\n🕯  The table is open.\n  http://localhost:${config.port}\n${lan.join("\n")}\n  Dungeon Master: ${chat.getModel()} at ${config.ollamaUrl}\n`);
 
 let shuttingDown = false;

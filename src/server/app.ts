@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
+import { networkInterfaces, type NetworkInterfaceInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
@@ -12,6 +13,7 @@ import type { DungeonMaster } from "./dm/dm";
 import type { ChatClient } from "./dm/ollama";
 import { createGitHubIssueFiler, type IssueFiler } from "./feedback/github";
 import { createUpdateChecker, type UpdateChecker } from "./updates";
+import { inviteAddresses } from "./invite";
 import { appVersion } from "./version";
 import { Hub } from "./realtime/hub";
 import { registerApi } from "./routes/api";
@@ -30,6 +32,8 @@ export interface AppDeps {
   updates?: UpdateChecker;
   /** Defaults to this checkout's git tag (src/server/version.ts). */
   version?: string;
+  /** Defaults to os.networkInterfaces; read on every request, since the Wi-Fi address can change. */
+  networkInterfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>;
 }
 
 const CLIENT_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../dist/client");
@@ -59,7 +63,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; t
   const version = deps.version ?? appVersion();
   const feedback = issues && { issues };
   await registerApi(app, { store: deps.store, rules, dm: deps.dm, chat: deps.chat, turns, adventures: loadAdventures(), feedback, version,
-    updates: deps.updates ?? createUpdateChecker({ repo: githubRepo }) });
+    updates: deps.updates ?? createUpdateChecker({ repo: githubRepo }),
+    invites: () => inviteAddresses((deps.networkInterfaces ?? networkInterfaces)(), deps.config.port) });
   await registerWs(app, { store: deps.store, rules, turns, hub });
 
   if (deps.serveClient) {
