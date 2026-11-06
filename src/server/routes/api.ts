@@ -45,6 +45,7 @@ const PersonEditSchema = z.object({
   letDmUpdate: z.literal(true).optional(),
 }).refine((v) => v.about !== undefined || v.notes !== undefined || v.letDmUpdate, { message: "Nothing to change." });
 const SummaryEditSchema = z.object({ summary: z.string().trim().min(1, "Write something for the story so far.").max(4000) });
+const ReplyEditSchema = z.object({ text: z.string().trim().min(1, "The reply can't be empty.").max(4000) });
 const RenameSchema = z.object({ title: z.string().trim().min(1, "Give it a name.").max(80) });
 const ModelSchema = z.object({ model: z.string().min(1) });
 
@@ -225,6 +226,20 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
     if (!parsed.success) return reply.code(400).send(bad(parsed.error));
     try {
       return await turns.editSummary(id, parsed.data.summary);
+    } catch (e) {
+      if (e instanceof GameError) return reply.code(409).send({ error: e.message });
+      throw e;
+    }
+  });
+
+  app.put<{ Params: { id: string; eventId: string } }>("/api/campaigns/:id/replies/:eventId", async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!store.getCampaign(id)) return reply.code(404).send({ error: "No such campaign." });
+    const parsed = ReplyEditSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad(parsed.error));
+    try {
+      await turns.editNarration(id, Number(req.params.eventId), parsed.data.text);
+      return reply.code(204).send();
     } catch (e) {
       if (e instanceof GameError) return reply.code(409).send({ error: e.message });
       throw e;

@@ -7,6 +7,7 @@ import type { Broadcaster } from "../../../src/server/realtime/hub";
 import { lightRules } from "../../../src/server/rules/engine";
 import { createStore } from "../../../src/server/store/store";
 import { GameError, TurnService } from "../../../src/server/turns/turns";
+import { buildSnapshot } from "../../../src/server/turns/snapshot";
 import type { Mode, ServerMsg } from "../../../src/shared/types";
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
@@ -588,5 +589,117 @@ describe("TurnService", () => {
     expect(store.getNpcs(id)).toEqual([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]);
     const snap = hub.msgs.filter((m) => m.t === "snapshot").at(-1);
     expect(snap && snap.t === "snapshot" && snap.snapshot.npcs).toEqual([{ name: "Scarred Brute", attitude: "hostile", condition: "wounded" }]);
+  });
+});
+
+describe("try again and editing the DM's replies (issue #28)", () => {
+  async function aRound() {
+    const s = await begun("solo", ["Corvin"]);
+    s.store.saveNpcs(s.id, [{ name: "Tom", attitude: "friendly", condition: "unhurt", about: "A friend from work." }], 0);
+    s.dm.nextChanges = [
+      { op: "add_item", character: "Corvin", name: "Warmth Crystal", description: "glows", qty: 1 },
+      { op: "damage", character: "Corvin", amount: 3 },
+      { op: "set_scene", title: "Hallway" },
+      { op: "npc", name: "Tom", attitude: "hostile", condition: "unhurt", about: "Annoyed at being doubted." },
+      { op: "npc", name: "Landlord", attitude: "neutral", condition: "unhurt" },
+    ];
+    await s.turns.submitAction(s.id, s.chars[0].id, "Why are you here?");
+    return s;
+  }
+
+  it("undoes everything the last reply changed, then has the DM write it again", async () => {
+    const { store, dm, turns, id } = await aRound();
+    expect(store.getCharacters(id)[0].items.map((i) => i.name)).toContain("Warmth Crystal");
+    await turns.tryAgain(id);
+    const [corvin] = store.getCharacters(id);
+    expect(corvin.items.map((i) => i.name)).toEqual(["Rope"]);
+    expect(corvin.hp).toBe(20);
+    expect(store.getCampaign(id)).toMatchObject({ sceneTitle: "The Gate", roundNumber: 2, roundState: "collecting" });
+    expect(store.getPeople(id).map((p) => [p.name, p.attitude, p.about])).toEqual([["Tom", "friendly", "A friend from work."]]);
+    expect(dm.resolveCalls).toHaveLength(2);
+    expect(dm.resolveCalls[1].actions).toEqual(dm.resolveCalls[0].actions);
+    expect(store.getEvents(id, { fromRound: 1, toRound: 1 }).map((e) => e.type)).toEqual(["action", "narration"]);
+  });
+
+  it("keeps what the new reply gives", async () => {
+    const { store, dm, turns, id } = await aRound();
+    dm.nextChanges = [{ op: "add_item", character: "Corvin", name: "Bus ticket", description: "", qty: 1 }];
+    await turns.tryAgain(id);
+    expect(store.getCharacters(id)[0].items.map((i) => i.name)).toEqual(["Rope", "Bus ticket"]);
+  });
+
+  it("keeps the dice as rolled, so it can't be used to re-roll", async () => {
+    const { store, dm, turns, id, chars } = await begun("solo", ["Corvin"]);
+    dm.nextChecks = [{ character: "Corvin", ability: "CHA", dc: 12, reason: "persuade" }];
+    await turns.submitAction(id, chars[0].id, "I ask for a lift");
+    await turns.roll(id, chars[0].id);
+    await turns.tryAgain(id);
+    expect(dm.adjudicateCalls).toHaveLength(1);
+    expect(dm.resolveCalls[1].rolls).toEqual(dm.resolveCalls[0].rolls);
+    expect(store.getEvents(id, { fromRound: 1, toRound: 1 }).filter((e) => e.type === "roll")).toHaveLength(1);
+  });
+
+  it("can redo the opening scene", async () => {
+    const { store, turns, id } = await begun("solo", ["Corvin"]);
+    await turns.tryAgain(id);
+    expect(store.getEvents(id, { fromRound: 0, toRound: 0 }).filter((e) => e.type === "narration")).toHaveLength(1);
+    expect(store.getCampaign(id)).toMatchObject({ roundNumber: 1, roundState: "collecting" });
+  });
+
+  it("only works on the latest reply, before anyone acts again", async () => {
+    const { turns, id, chars } = await aRound();
+    await turns.submitAction(id, chars[0].id, "I leave");
+    await turns.tryAgain(id); // round 2's reply is retryable
+    const { turns: t2, id: id2 } = setup("party");
+    await expect(t2.tryAgain(id2)).rejects.toThrow(GameError);
+    const p = await begun();
+    await p.turns.submitAction(p.id, p.chars[0].id, "I wait");
+    await expect(p.turns.tryAgain(p.id)).rejects.toThrow(/already acted/);
+  });
+
+  it("is refused after the story so far was edited", async () => {
+    const { turns, id } = await aRound();
+    await turns.editSummary(id, "Tom was never here.");
+    await expect(turns.tryAgain(id)).rejects.toThrow(/story so far/);
+  });
+
+  it("undoes a summary that covered the reply", async () => {
+    const { store, turns, id } = await aRound();
+    const before = store.getCampaign(id)!.summary;
+    await turns.recap(id);
+    expect(store.getCampaign(id)!.summary).not.toBe(before);
+    await turns.tryAgain(id);
+    expect(store.getCampaign(id)!.summary).toBe(before);
+    expect(store.getEvents(id).filter((e) => e.type === "summary")).toHaveLength(0);
+  });
+
+  it("keeps someone the reply introduced if the player has written notes on them", async () => {
+    const { store, turns, id } = await aRound();
+    store.updatePerson(id, "Landlord", { notes: "Owes me a favour" });
+    await turns.tryAgain(id);
+    expect(store.getPeople(id).find((p) => p.name === "Landlord")).toMatchObject({ notes: "Owes me a favour", present: false });
+    expect(store.getPeople(id).find((p) => p.name === "Tom")?.present).toBe(true);
+  });
+
+  it("the snapshot says when Try again is available", async () => {
+    const { store, id } = await aRound();
+    expect(buildSnapshot(store, lightRules, id).canTryAgain).toBe(true);
+    expect(buildSnapshot(setup().store, lightRules, 1).canTryAgain).toBe(false);
+    const p = await begun();
+    expect(buildSnapshot(p.store, lightRules, p.id).canTryAgain).toBe(true);
+    await p.turns.submitAction(p.id, p.chars[0].id, "I wait");
+    expect(buildSnapshot(p.store, lightRules, p.id).canTryAgain).toBe(false);
+  });
+
+  it("edits the words of a DM reply, and the DM reads the new version", async () => {
+    const { store, turns, id } = await aRound();
+    const reply = store.getEvents(id).filter((e) => e.type === "narration").at(-1)!;
+    await turns.editNarration(id, reply.id, "  Tom says the landlord let him in on his way past.  ");
+    expect(store.getEvents(id).find((e) => e.id === reply.id)).toMatchObject({ text: "Tom says the landlord let him in on his way past." });
+    expect(buildContext(store, id).recentRounds.flatMap((r) => r.lines)).toContain("DM: Tom says the landlord let him in on his way past.");
+    const action = store.getEvents(id).find((e) => e.type === "action")!;
+    await expect(turns.editNarration(id, action.id, "x")).rejects.toThrow(GameError);
+    await expect(turns.editNarration(id, reply.id, "   ")).rejects.toThrow(GameError);
+    await expect(turns.editNarration(id, 99999, "x")).rejects.toThrow(GameError);
   });
 });

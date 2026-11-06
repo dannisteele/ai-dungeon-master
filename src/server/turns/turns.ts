@@ -7,7 +7,7 @@ import type { D20 } from "../rules/dice";
 import type { RulesEngine } from "../rules/engine";
 import { findCharacterByName } from "../rules/ops";
 import type { Store } from "../store/store";
-import { activeCharacters, buildSnapshot } from "./snapshot";
+import { activeCharacters, buildSnapshot, whyNoTryAgain } from "./snapshot";
 import { roundStatus } from "./status";
 
 /** A player-facing problem ("it's not your turn"), safe to show in the UI. */
@@ -19,6 +19,8 @@ export class GameError extends Error {}
 export interface TurnDeps { store: Store; rules: RulesEngine; dm: DungeonMaster; hub: Broadcaster; dice: D20 }
 
 const SUMMARY_EVERY = 10;
+/** What a DM reply adds to its round; "Try again" removes these, keeping the actions and dice. */
+const UNDONE_WITH_REPLY = new Set(["narration", "op_applied", "op_rejected", "party_fallen", "stall"]);
 const FALLEN_MESSAGE = "The party has fallen. Revive or start a new campaign.";
 const isHpOp = (o: unknown) => typeof o === "object" && o !== null && ["damage", "heal"].includes(String((o as { op?: unknown }).op));
 const hasResponded = (s: RoundStatus, id: number) => s.actions.some((a) => a.characterId === id) || s.skippedIds.includes(id);
@@ -98,6 +100,47 @@ export class TurnService {
       else if (c.stalledPhase === "adjudicating") await this.runAdjudicate(id);
       else if (c.stalledPhase === "reviving") await this.runRevive(id);
       else await this.runResolve(id);
+    });
+  }
+
+  /**
+   * Undoes the DM's latest reply (sheets, people, scene, summary) and has it written again from the
+   * same actions and dice. Waits for any summary in flight, so none lands on the undone reply.
+   */
+  tryAgain(id: number): Promise<void> {
+    return this.locked(id, async () => {
+      const { store } = this.deps;
+      for (let running = this.summarising.get(id); running; running = this.summarising.get(id)) {
+        await running.catch(() => undefined);
+      }
+      const why = whyNoTryAgain(store, this.campaign(id));
+      if (why) throw new GameError(why);
+      const cp = store.getCheckpoint(id)!;
+      store.transaction(() => {
+        for (const ch of cp.characters) if (store.getCharacter(ch.id)) store.saveCharacter(ch);
+        store.restorePeople(id, cp.people);
+        const undone = store.getEvents(id, { fromRound: cp.round }).filter((e) =>
+          (e.round === cp.round && UNDONE_WITH_REPLY.has(e.type)) || (e.type === "summary" && !e.edited && e.throughRound >= cp.round));
+        store.deleteEvents(id, undone.map((e) => e.id));
+        store.clearCheckpoint(id);
+        store.updateCampaign(id, { summary: cp.summary, sceneTitle: cp.sceneTitle, roundNumber: cp.round });
+      });
+      if (cp.kind === "opening") await this.runOpening(id);
+      else if (cp.kind === "revive") await this.runRevive(id);
+      else await this.runResolve(id);
+    });
+  }
+
+  /** The players rewrite one of the DM's replies; the DM reads their version from then on. */
+  editNarration(id: number, eventId: number, text: string): Promise<void> {
+    return this.locked(id, async () => {
+      const c = this.campaign(id);
+      if ((AI_PHASES as readonly string[]).includes(c.roundState)) throw new GameError("The Dungeon Master is mid-sentence. Try again once the story settles.");
+      const trimmed = text.trim();
+      if (!trimmed) throw new GameError("The reply can't be empty.");
+      if (trimmed.length > 4000) throw new GameError("Keep it under 4000 characters.");
+      if (!this.deps.store.setNarrationText(id, eventId, trimmed)) throw new GameError("That isn't one of the Dungeon Master's replies.");
+      this.broadcastSnapshot(id);
     });
   }
 
@@ -305,6 +348,10 @@ export class TurnService {
     const { store, rules } = this.deps;
     store.transaction(() => {
       const c = this.campaign(id);
+      store.saveCheckpoint(id, {
+        round: c.roundNumber, kind: c.roundState === "opening" ? "opening" : mode === "revive" ? "revive" : "resolve",
+        characters: store.getCharacters(id), people: store.getPeople(id), sceneTitle: c.sceneTitle, summary: c.summary,
+      });
       const blocked = mode === "revive" ? out.changes.filter(isHpOp) : [];
       const changes = mode === "revive" ? out.changes.filter((o) => !isHpOp(o)) : out.changes;
       const result = rules.applyOps(store.getCharacters(id), changes, store.getNpcs(id));
