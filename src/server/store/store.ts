@@ -60,6 +60,7 @@ export interface Store {
    */
   restorePeople(campaignId: number, people: Person[]): void;
   deleteEvents(campaignId: number, ids: number[]): void;
+  replaceEvent(campaignId: number, eventId: number, event: GameEvent): void;
   /** Returns false unless the event is one of this campaign's DM replies. */
   setNarrationText(campaignId: number, eventId: number, text: string): boolean;
   /** Small app-wide preferences, e.g. the chosen model. */
@@ -395,6 +396,9 @@ export function createStore(path: string): Store {
     deleteEvents(campaignId, ids) {
       const del = db.prepare("DELETE FROM events WHERE campaign_id = ? AND id = ?");
       db.transaction(() => { for (const id of ids) del.run(campaignId, id); })();
+    },
+    replaceEvent(campaignId, eventId, event) {
+      db.prepare("UPDATE events SET type = ?, payload_json = ? WHERE campaign_id = ? AND id = ?").run(event.type, JSON.stringify(event), campaignId, eventId);
     },
     setNarrationText(campaignId, eventId, text) {
       const info = db.prepare("UPDATE events SET payload_json = ? WHERE campaign_id = ? AND id = ? AND type = 'narration'")

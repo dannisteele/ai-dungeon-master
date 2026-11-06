@@ -158,7 +158,8 @@ export type ClientMsg =
   | { t: "roll"; characterId: number }
   | { t: "retry" }
   | { t: "revive" }
-  | { t: "try_again" };
+  | { t: "try_again" }
+  | { t: "change_action"; characterId: number; text: string };
 
 export interface Preset { id: string; name: string; blurb: string; setting: string; realism: Realism }
 export interface AdventureInfo { id: string; title: string; pitch: string; realism: Realism }
